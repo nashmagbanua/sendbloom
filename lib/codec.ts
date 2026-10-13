@@ -1,5 +1,7 @@
 import {
   Bouquet,
+  CardTheme,
+  CARD_THEMES,
   Flower,
   FlowerType,
   FLOWER_META,
@@ -8,6 +10,8 @@ import {
   MAX_LINK,
   MAX_MSG,
   MAX_NAME,
+  StickerId,
+  STICKER_META,
   WrapId,
   WRAPS,
 } from "./constants";
@@ -50,7 +54,7 @@ const CODE_TO_TYPE: Record<string, FlowerType> = Object.fromEntries(
 ) as Record<string, FlowerType>;
 
 export function encodeBouquet(b: Bouquet): string {
-  const payload = {
+  const payload: Record<string, unknown> = {
     t: clean(b.to, MAX_NAME),
     r: clean(b.from, MAX_NAME),
     m: clean(b.msg, MAX_MSG),
@@ -58,6 +62,9 @@ export function encodeBouquet(b: Bouquet): string {
     f: b.f.slice(0, MAX_FLOWERS).map((x) => FLOWER_META[x.t].code + x.c),
     s: safeLink(b.s),
   };
+  if (b.k && b.k in STICKER_META) payload.k = b.k;
+  if (b.c && b.c in CARD_THEMES) payload.c = b.c;
+
   return b64urlEncode(JSON.stringify(payload));
 }
 
@@ -81,6 +88,9 @@ export function decodeBouquet(code: string): Bouquet | null {
     if (flowers.length === 0) return null;
 
     const w: WrapId = raw.w in WRAPS ? raw.w : "kraft";
+    const k: StickerId | undefined = raw.k in STICKER_META ? (raw.k as StickerId) : undefined;
+    const c: CardTheme | undefined = raw.c in CARD_THEMES ? (raw.c as CardTheme) : undefined;
+
     return {
       to: clean(raw.t, MAX_NAME),
       from: clean(raw.r, MAX_NAME),
@@ -88,6 +98,8 @@ export function decodeBouquet(code: string): Bouquet | null {
       w,
       f: flowers,
       s: safeLink(raw.s),
+      k,
+      c,
     };
   } catch {
     return null;

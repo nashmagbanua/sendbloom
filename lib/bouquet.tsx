@@ -180,6 +180,8 @@ export type BouquetOpts = {
   /** adds CSS class names/delays for the bloom animation (browser only) */
   animated?: boolean;
   className?: string;
+  onFlowerClick?: (index: number) => void;
+  selectedFlowerIndex?: number | null;
 };
 
 export function bouquetSvg(b: Pick<Bouquet, "f" | "w">, o: BouquetOpts = {}): ReactElement {
@@ -198,7 +200,7 @@ export function bouquetSvg(b: Pick<Bouquet, "f" | "w">, o: BouquetOpts = {}): Re
       ? { transformOrigin: `${AX}px ${AY}px`, animationDelay: `${0.05 + i * 0.05}s` }
       : undefined;
     return (
-      <g key={`lf${i}`} className={an ? "bl-leaf" : undefined} style={style}>
+      <g key={`lf${i}`} className={`${an ? "bl-leaf" : ""} leaf-sway leaf-sway-${i % 2}`} style={style}>
         <path
           d="M0,0 C24,-40 24,-112 0,-156 C-24,-112 -24,-40 0,0Z"
           transform={`translate(${AX} ${AY}) rotate(${a}) scale(${1 - Math.abs(a) / 220})`}
@@ -232,11 +234,30 @@ export function bouquetSvg(b: Pick<Bouquet, "f" | "w">, o: BouquetOpts = {}): Re
     const fl = b.f[i];
     const color = FLOWER_META[fl.t].colors[fl.c] ?? FLOWER_META[fl.t].colors[0];
     const rot = ((i * 37) % 40) - 20;
+    const isSelected = o.selectedFlowerIndex === i;
     const style: CSSProperties | undefined = an
       ? { transformOrigin: `${x}px ${y}px`, animationDelay: `${0.7 + drawIdx * 0.13}s` }
       : undefined;
+    const swayClass = `flower-sway flower-sway-${i % 4}`;
     return (
-      <g key={`hd${i}`} className={an ? "bl-head" : undefined} style={style}>
+      <g
+        key={`hd${i}`}
+        className={`${an ? "bl-head" : ""} ${swayClass} ${o.onFlowerClick ? "flower-head-interactive" : ""}`}
+        style={{ ...style, cursor: o.onFlowerClick ? "pointer" : undefined }}
+        onClick={o.onFlowerClick ? () => o.onFlowerClick!(i) : undefined}
+      >
+        {isSelected && (
+          <circle
+            cx={x}
+            cy={y}
+            r={r * 1.25}
+            fill="none"
+            stroke="#e8506a"
+            strokeWidth={3}
+            strokeDasharray="4 4"
+            className="selected-flower-ring"
+          />
+        )}
         <g transform={`translate(${x} ${y}) rotate(${rot}) scale(${r})`}>{flowerHead(fl.t, color)}</g>
       </g>
     );

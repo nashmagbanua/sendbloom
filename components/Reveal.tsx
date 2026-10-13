@@ -3,31 +3,94 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import BouquetSVG from "./BouquetSVG";
-import { Bouquet, FLOWER_META } from "@/lib/constants";
+import MusicPlayer from "./MusicPlayer";
+import {
+  Bouquet,
+  CARD_THEMES,
+  FLOWER_META,
+  STICKER_META,
+} from "@/lib/constants";
+import {
+  playBloomCelebration,
+  playRustle,
+  playSealBreak,
+  setSoundMuted,
+} from "@/lib/audio";
+import {
+  RotateCcw,
+  Sparkles,
+  Volume2,
+  VolumeX,
+  Share2,
+  Heart,
+  Music,
+} from "lucide-react";
 
-type PetalSpec = { left: number; size: number; dur: number; delay: number; color: string; drift: number };
+type PetalSpec = {
+  left: number;
+  size: number;
+  dur: number;
+  delay: number;
+  color: string;
+  drift: number;
+};
 
 function makePetals(data: Bouquet): PetalSpec[] {
   const palette = data.f.map((fl) => FLOWER_META[fl.t].colors[fl.c] ?? "#ff8fa3");
-  return Array.from({ length: 16 }, (_, i) => ({
+  return Array.from({ length: 22 }, (_, i) => ({
     left: Math.random() * 100,
-    size: 10 + Math.random() * 12,
-    dur: 6 + Math.random() * 6,
-    delay: 1.2 + Math.random() * 6,
+    size: 12 + Math.random() * 14,
+    dur: 5 + Math.random() * 5,
+    delay: 0.5 + Math.random() * 5,
     color: palette[i % palette.length],
-    drift: (Math.random() - 0.5) * 140,
+    drift: (Math.random() - 0.5) * 160,
   }));
 }
 
-const CONFETTI_COLORS = ["#ff8fa3", "#ffd166", "#ffffff", "#c77dff", "#ff5d8f", "#9be7c4", "#ffb703"];
+const CONFETTI_COLORS = [
+  "#ff8fa3",
+  "#ffd166",
+  "#ffffff",
+  "#c77dff",
+  "#ff5d8f",
+  "#9be7c4",
+  "#ffb703",
+  "#f72585",
+  "#4cc9f0",
+];
 
-export default function Reveal({ data, preview = false }: { data: Bouquet; preview?: boolean }) {
+export default function Reveal({
+  data,
+  preview = false,
+}: {
+  data: Bouquet;
+  preview?: boolean;
+}) {
   const [opened, setOpened] = useState(false);
+  const [flapOpen, setFlapOpen] = useState(false);
   const [flash, setFlash] = useState(false);
   const [showNote, setShowNote] = useState(false);
   const [typed, setTyped] = useState("");
   const [runId, setRunId] = useState(0);
   const [petals, setPetals] = useState<PetalSpec[]>([]);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [reactions, setReactions] = useState<{ id: number; x: number; y: number }[]>([]);
+  const [reactionCount, setReactionCount] = useState(0);
+
+  const sendHeartReaction = (e: React.MouseEvent) => {
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const newHeart = {
+      id: Date.now() + Math.random(),
+      x: rect.left + rect.width / 2 + (Math.random() - 0.5) * 60,
+      y: rect.top,
+    };
+    setReactions((prev) => [...prev.slice(-20), newHeart]);
+    setReactionCount((c) => c + 1);
+    if (soundEnabled) playBloomCelebration();
+    try {
+      navigator.vibrate?.(25);
+    } catch {}
+  };
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef(0);
@@ -44,10 +107,17 @@ export default function Reveal({ data, preview = false }: { data: Bouquet; previ
   }, [data]);
 
   const later = useCallback((fn: () => void, ms: number) => {
-    timers.current.push(setTimeout(fn, ms));
+    const t = setTimeout(fn, ms);
+    timers.current.push(t);
   }, []);
 
-  const burst = useCallback(() => {
+  const toggleSound = () => {
+    const next = !soundEnabled;
+    setSoundEnabled(next);
+    setSoundMuted(!next);
+  };
+
+  const burstConfetti = useCallback(() => {
     const cv = canvasRef.current;
     if (!cv) return;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -59,30 +129,29 @@ export default function Reveal({ data, preview = false }: { data: Bouquet; previ
     if (!ctx) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    const parts = Array.from({ length: 170 }, () => {
+    const parts = Array.from({ length: 190 }, () => {
       const a = Math.random() * Math.PI * 2;
-      const sp = 5 + Math.random() * 13;
+      const sp = 6 + Math.random() * 15;
       return {
         x: W / 2,
-        y: H * 0.45,
+        y: H * 0.42,
         vx: Math.cos(a) * sp,
-        vy: Math.sin(a) * sp - 7,
-        w: 5 + Math.random() * 6,
-        h: 3 + Math.random() * 5,
+        vy: Math.sin(a) * sp - 7.5,
+        w: 6 + Math.random() * 6,
+        h: 4 + Math.random() * 5,
         rot: Math.random() * 6,
-        vr: (Math.random() - 0.5) * 0.45,
+        vr: (Math.random() - 0.5) * 0.5,
         c: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
         round: Math.random() < 0.4,
       };
     });
 
-    const t0 = performance.now();
     cancelAnimationFrame(rafRef.current);
-    const tick = (t: number) => {
+    const tick = () => {
       ctx.clearRect(0, 0, W, H);
       let alive = 0;
       for (const p of parts) {
-        p.vy += 0.3;
+        p.vy += 0.28;
         p.vx *= 0.985;
         p.x += p.vx;
         p.y += p.vy;
@@ -103,127 +172,302 @@ export default function Reveal({ data, preview = false }: { data: Bouquet; previ
           ctx.restore();
         }
       }
-      if (alive > 0 && t - t0 < 4800) {
-        rafRef.current = requestAnimationFrame(tick);
-      } else {
-        ctx.clearRect(0, 0, W, H);
-      }
+      if (alive > 0) rafRef.current = requestAnimationFrame(tick);
+      else ctx.clearRect(0, 0, W, H);
     };
     rafRef.current = requestAnimationFrame(tick);
   }, []);
 
-  const play = useCallback(() => {
-    timers.current.forEach(clearTimeout);
-    timers.current = [];
-    setOpened(true);
-    setShowNote(false);
-    setTyped("");
-    setRunId((r) => r + 1);
+  const openGift = () => {
+    if (opened) return;
 
-    if (!reduced.current) {
-      setFlash(true);
-      later(() => setFlash(false), 750);
-      burst();
+    // 1. Break wax seal & audio
+    if (soundEnabled) {
+      playSealBreak();
+      setTimeout(playRustle, 180);
     }
     try {
-      navigator.vibrate?.([40, 60, 110]);
+      navigator.vibrate?.([30, 50, 40]);
     } catch {}
-    later(() => setShowNote(true), reduced.current ? 100 : 2100);
-  }, [burst, later]);
 
-  // typewriter for the message
-  useEffect(() => {
-    if (!showNote) return;
-    if (reduced.current || !data.msg) {
-      setTyped(data.msg);
-      return;
+    setFlapOpen(true);
+
+    // 2. Open envelope flap, flash, and bloom bouquet
+    later(() => {
+      setOpened(true);
+      setFlash(true);
+      later(() => setFlash(false), 700);
+
+      if (soundEnabled) {
+        playBloomCelebration();
+      }
+
+      if (!reduced.current) {
+        burstConfetti();
+      }
+    }, 450);
+
+    // 3. Reveal handwritten letter with typing effect
+    later(() => {
+      setShowNote(true);
+      const full = data.msg || "";
+      if (!full || reduced.current) {
+        setTyped(full);
+        return;
+      }
+      let i = 0;
+      const step = () => {
+        i += 2;
+        setTyped(full.slice(0, i));
+        if (i < full.length) later(step, 24);
+      };
+      step();
+    }, 1200);
+  };
+
+  const replay = () => {
+    timers.current.forEach(clearTimeout);
+    cancelAnimationFrame(rafRef.current);
+    const cv = canvasRef.current;
+    if (cv) {
+      const ctx = cv.getContext("2d");
+      ctx?.clearRect(0, 0, cv.width, cv.height);
     }
-    let i = 0;
-    const id = setInterval(() => {
-      i += 1;
-      setTyped(data.msg.slice(0, i));
-      if (i >= data.msg.length) clearInterval(id);
-    }, 32);
-    return () => clearInterval(id);
-  }, [showNote, data.msg, runId]);
+    setOpened(false);
+    setFlapOpen(false);
+    setShowNote(false);
+    setFlash(false);
+    setTyped("");
+    setRunId((n) => n + 1);
+  };
 
-  const to = data.to || "iyo";
+  const currentTheme = CARD_THEMES[data.c || "classic"] || CARD_THEMES.classic;
+  const stickerItem = STICKER_META[data.k || "heart"] || STICKER_META.heart;
 
   return (
-    <div className="rv">
-      {preview && (
-        <div className="rv-preview-bar">
-          <span>Ganito makikita ng pagbibigyan</span>
-          <Link href="/">Bumalik</Link>
-        </div>
-      )}
-      <div className="rv-glow" />
-      <canvas ref={canvasRef} className="rv-confetti" aria-hidden="true" />
-      {flash && <div className="rv-flash" />}
+    <div className="reveal-page-wrapper">
+      {/* Floating Petals */}
+      {opened &&
+        petals.map((p, i) => (
+          <span
+            key={`pet-${runId}-${i}`}
+            className="petal"
+            style={
+              {
+                left: `${p.left}%`,
+                width: `${p.size}px`,
+                height: `${p.size * 1.3}px`,
+                background: `radial-gradient(ellipse at 35% 35%, ${p.color}, #a02040)`,
+                animationDuration: `${p.dur}s`,
+                animationDelay: `${p.delay}s`,
+                "--drift": `${p.drift}px`,
+              } as React.CSSProperties
+            }
+          />
+        ))}
 
-      {!opened && (
-        <div className="rv-pre">
-          <div className="rv-small">May padala para kay</div>
-          <h1 className="rv-to">{to}</h1>
-          <div className="rv-gift" aria-hidden="true">
-            🎁
+      {/* Confetti Canvas */}
+      <canvas ref={canvasRef} className="reveal-confetti-canvas" />
+
+      {/* Subtle Glow Backdrop */}
+      <div className="reveal-ambient-glow" />
+
+      {/* Top Controls Bar */}
+      <div className="reveal-top-bar">
+        {preview && (
+          <div className="preview-indicator-badge">
+            <span>👁️ Ikaw ay nasa Preview Mode</span>
+            <Link href="/" className="preview-return-link">
+              Bumalik sa Paggawa ➔
+            </Link>
           </div>
-          <button className="rv-open" onClick={play}>
-            Buksan
+        )}
+        <div className="controls-right-group">
+          <button
+            type="button"
+            className="sound-control-pill"
+            onClick={toggleSound}
+            aria-label={soundEnabled ? "I-mute ang tunog" : "I-on ang tunog"}
+          >
+            {soundEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
+            <span>{soundEnabled ? "May Tunog" : "Naka-mute"}</span>
           </button>
-          {data.from && <div className="rv-from">mula kay {data.from}</div>}
+        </div>
+      </div>
+
+      {/* UNOPENED ENVELOPE STAGE */}
+      {!opened && (
+        <div className="envelope-hero-box">
+          <div className="envelope-recipient-badge">
+            <span className="for-label">May espesyal na padala para kay:</span>
+            <h1 className="for-name">{data.to ? data.to : "sa Iyo"}</h1>
+            {data.from && (
+              <span className="from-label">mula kay {data.from}</span>
+            )}
+          </div>
+
+          {/* Interactive Envelope Container */}
+          <div
+            className={`interactive-envelope-3d ${flapOpen ? "flap-open" : ""}`}
+            onClick={openGift}
+            role="button"
+            tabIndex={0}
+            aria-label="Pindutin para buksan ang sobre"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") openGift();
+            }}
+          >
+            <div className="envelope-back-pocket" />
+
+            <div className="envelope-bouq-peek">
+              <BouquetSVG data={{ f: data.f, w: data.w }} />
+            </div>
+
+            <div className="envelope-front-pocket" />
+
+            {/* Envelope Top Flap */}
+            <div className="envelope-top-flap" />
+
+            {/* Wax Seal / Stamp Button */}
+            <div className="wax-seal-button-wrap">
+              <button
+                type="button"
+                className="wax-seal-badge pulse-seal"
+                aria-label="Buksan ang wax seal"
+              >
+                <span className="seal-emblem">{stickerItem.icon}</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="tap-instruction-card">
+            <button
+              type="button"
+              className="open-action-btn pulse-button"
+              onClick={openGift}
+            >
+              <Sparkles size={18} className="inline mr-2" />
+              Pindutin para Bumukadkad
+            </button>
+            <span className="tap-hint-text">
+              I-tap ang Wax Seal o ang buton sa itaas
+            </span>
+          </div>
         </div>
       )}
 
+      {/* OPENED BOUQUET & NOTE STAGE */}
       {opened && (
-        <>
-          {petals.map((p, i) => (
-            <span
-              key={`${runId}-${i}`}
-              className="petal"
-              style={
-                {
-                  left: `${p.left}%`,
-                  width: p.size,
-                  height: p.size * 1.3,
-                  background: p.color,
-                  animationDuration: `${p.dur}s`,
-                  animationDelay: `${p.delay}s`,
-                  ["--drift" as string]: `${p.drift}px`,
-                } as React.CSSProperties
-              }
-            />
-          ))}
+        <div className="revealed-content-stage">
+          {flash && <div className="reveal-flash-effect" />}
 
-          <div className="rv-stage" key={`b-${runId}`}>
-            <BouquetSVG data={data} animated />
+          <div className="recipient-greeting-header">
+            <span className="greeting-sub">Para kay</span>
+            <h1 className="greeting-title">{data.to || "sa Iyo"} 💐</h1>
           </div>
 
-          {showNote && (
-            <div className="rv-note">
-              {data.to && <div className="to">Para kay {data.to},</div>}
-              <div className="msg">{typed || (data.msg ? "" : "💐")}</div>
-              {data.from && <div className="sig">— {data.from}</div>}
+          {/* Flowering Stage */}
+          <div className="blooming-bouquet-display">
+            <BouquetSVG data={{ f: data.f, w: data.w }} animated={true} />
+          </div>
+
+          {/* Music Player (If song attached) */}
+          {data.s && (
+            <div className="song-widget-wrapper">
+              <MusicPlayer url={data.s} />
             </div>
           )}
 
-          {showNote && (
-            <div className="rv-actions">
-              {data.s && (
-                <a className="pill solid" href={data.s} target="_blank" rel="noopener noreferrer">
-                  🎵 Pakinggan ang kanta
-                </a>
+          {/* Handwritten Letter / Note */}
+          {showNote && (data.msg || data.from || data.to) && (
+            <div
+              className="handwritten-letter-card"
+              style={{
+                background: currentTheme.bg,
+                color: currentTheme.text,
+                borderColor: currentTheme.border,
+              }}
+            >
+              <div
+                className="letter-stamp-corner"
+                title={stickerItem.label}
+              >
+                {stickerItem.icon}
+              </div>
+
+              {data.to && (
+                <div
+                  className="letter-to-line"
+                  style={{ color: currentTheme.accent }}
+                >
+                  Mahal kong {data.to},
+                </div>
               )}
-              <button className="pill" onClick={play}>
-                ↻ Ulitin
-              </button>
-              <Link className="pill" href="/">
-                Gumawa rin ng sarili mo
-              </Link>
+
+              {data.msg && (
+                <div className="letter-body-text">
+                  {typed}
+                  {typed.length < (data.msg || "").length && (
+                    <span className="typing-cursor">|</span>
+                  )}
+                </div>
+              )}
+
+              {data.from && (
+                <div
+                  className="letter-signature-line"
+                  style={{ color: currentTheme.accent }}
+                >
+                  Nagmamahal,<br />
+                  <span>{data.from}</span>
+                </div>
+              )}
             </div>
           )}
-        </>
+
+          {/* Interactive Heart Shower Reaction */}
+          <div className="reaction-card-box">
+            <button
+              type="button"
+              className="heart-reaction-btn pulse-glow"
+              onClick={sendHeartReaction}
+              aria-label="Pusuan ang natanggap na bouquet"
+            >
+              <Heart size={20} className="inline text-rose-500 fill-rose-500 mr-2" />
+              <span>Pusuan / I-react ({reactionCount})</span>
+            </button>
+            <span className="reaction-hint">I-tap para magpadala ng lumilipad na puso! 💖</span>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="reveal-footer-actions">
+            <button
+              type="button"
+              className="action-pill-btn secondary"
+              onClick={replay}
+            >
+              <RotateCcw size={15} className="inline mr-1" />
+              Buksan Muli
+            </button>
+
+            <Link href="/" className="action-pill-btn primary">
+              <Heart size={15} className="inline mr-1 text-pink-500" />
+              Gumawa rin ng Sariling Bouquet
+            </Link>
+          </div>
+        </div>
       )}
+
+      {/* Floating Reaction Hearts */}
+      {reactions.map((h) => (
+        <span
+          key={h.id}
+          className="floating-heart-burst"
+          style={{ left: `${h.x}px`, top: `${h.y}px` }}
+        >
+          💖
+        </span>
+      ))}
     </div>
   );
 }
