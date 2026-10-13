@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import BouquetSVG, { FlowerIcon } from "./BouquetSVG";
-import { encodeBouquet, safeLink } from "@/lib/codec";
+import { encodeBouquet } from "@/lib/codec";
 import {
   Bouquet,
   CardTheme,
@@ -30,7 +30,6 @@ import {
   Gift,
   Mail,
   Send,
-  Sparkles,
   Volume2,
   VolumeX,
   X,
@@ -42,6 +41,7 @@ import {
   Check,
   Plus,
   Music,
+  Coffee,
 } from "lucide-react";
 
 const STARTER: Flower[] = [
@@ -73,6 +73,9 @@ export default function Builder() {
   const [copied, setCopied] = useState(false);
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
   const [selectedFlowerIndex, setSelectedFlowerIndex] = useState<number | null>(null);
+  const [triedSubmit, setTriedSubmit] = useState(false);
+  const [showCoffeeModal, setShowCoffeeModal] = useState(false);
+  const [copiedGCash, setCopiedGCash] = useState(false);
 
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -82,7 +85,7 @@ export default function Builder() {
     };
   }, []);
 
-  // Any edit clears the generated link so it stays accurate
+  // Clear link when bouquet details change
   useEffect(() => {
     setLink("");
     setCopied(false);
@@ -179,14 +182,43 @@ export default function Builder() {
     showToast(`Inilapat ang preset para sa ${p.name}! ✨`);
   }
 
-  const canMake = flowers.length > 0;
+  function validateAndProceedToWrap() {
+    if (flowers.length === 0) {
+      showToast("Pumili muna ng kahit isang bulaklak 🌸");
+      return;
+    }
+    setActiveTab("wrap");
+    if (soundEnabled) playRustle();
+  }
+
+  function validateAndProceedToLetter() {
+    setActiveTab("letter");
+    if (soundEnabled) playRustle();
+  }
 
   function generateLink() {
-    if (!canMake) return;
+    if (!to.trim()) {
+      setTriedSubmit(true);
+      setActiveTab("letter");
+      showToast("Pakilagay ang pangalan sa 'Para kay' bago magpatuloy ✍️");
+      return;
+    }
+    if (!from.trim()) {
+      setTriedSubmit(true);
+      setActiveTab("letter");
+      showToast("Pakilagay ang iyong pangalan sa 'Mula kay' bago magpatuloy ✍️");
+      return;
+    }
+    if (flowers.length === 0) {
+      setActiveTab("flowers");
+      showToast("Maglagay muna ng bulaklak sa iyong bouquet 🌸");
+      return;
+    }
+
     const bouquetData: Bouquet = {
-      to,
-      from,
-      msg,
+      to: to.trim(),
+      from: from.trim(),
+      msg: msg.trim(),
       w: wrap,
       f: flowers,
       st: songTitle.trim() || undefined,
@@ -216,10 +248,12 @@ export default function Builder() {
 
   async function nativeShare() {
     if (!link) return;
-    const text = to ? `May padala akong digital bouquet para kay ${to} 💐` : "May padala akong digital bouquet para sa iyo 💐";
+    const text = to.trim()
+      ? `May espesyal na digital bouquet para kay ${to} 💐`
+      : "May espesyal na digital bouquet para sa iyo 💐";
     if (typeof navigator !== "undefined" && navigator.share) {
       try {
-        await navigator.share({ title: "SendBloom", text, url: link });
+        await navigator.share({ title: "SendBloom Bouquet", text, url: link });
         return;
       } catch (e: any) {
         if (e?.name === "AbortError") return;
@@ -228,32 +262,73 @@ export default function Builder() {
     copyLink();
   }
 
-  async function messengerShare() {
+  /**
+   * Directly target Messenger without blocking delays.
+   * Works smoothly on iOS Safari / WebKit and Android.
+   */
+  function messengerShare() {
     if (!link) return;
-    try {
-      await navigator.clipboard.writeText(link);
+
+    // Immediately copy link in background (no await so transient gesture is preserved)
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(link).catch(() => {});
       setCopied(true);
-    } catch {}
+      setTimeout(() => setCopied(false), 2500);
+    }
+
+    const isIOS = typeof navigator !== "undefined" && /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const text = `May espesyal na digital bouquet para kay ${to.trim() || "sa iyo"} 💐`;
+
+    // 1. On iOS: Calling navigator.share directly during the click gesture natively displays
+    // the system share card where Messenger is prominently listed at the top!
+    if (isIOS && typeof navigator !== "undefined" && navigator.share) {
+      try {
+        navigator.share({
+          title: "SendBloom Bouquet",
+          text,
+          url: link,
+        }).catch((err: any) => {
+          if (err?.name !== "AbortError") {
+            // Fallback to fb-messenger scheme
+            window.location.href = `fb-messenger://share?link=${encodeURIComponent(link)}`;
+          }
+        });
+        showToast("Binubuksan ang Messenger... 💬");
+        return;
+      } catch {}
+    }
 
     const isMobile = typeof navigator !== "undefined" && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-    if (!isMobile) {
-      showToast("Nakopya ang link! I-paste sa Messenger chat 💬");
-      return;
+
+    if (isMobile) {
+      showToast("Binubuksan ang Messenger app... 💬");
+      window.location.href = `fb-messenger://share?link=${encodeURIComponent(link)}`;
+    } else {
+      showToast("Binubuksan ang Messenger... 💬");
+      window.open(
+        `https://www.facebook.com/dialog/send?link=${encodeURIComponent(link)}&app_id=291494419107518&redirect_uri=${encodeURIComponent(link)}`,
+        "_blank"
+      );
     }
-    // Launch Messenger app directly without opening browser tabs
-    showToast("Binubuksan ang Messenger app... 💬");
-    window.location.href = `fb-messenger://share?link=${encodeURIComponent(link)}`;
+  }
+
+  function copyGCashNumber() {
+    const gcashNumber = "0917 123 4567";
+    navigator.clipboard?.writeText(gcashNumber.replace(/\s+/g, "")).catch(() => {});
+    setCopiedGCash(true);
+    showToast("Nakopya ang GCash number! 💙");
+    setTimeout(() => setCopiedGCash(false), 2500);
   }
 
   const colors = FLOWER_META[type].colors;
 
   return (
     <main className="builder-container">
-      {/* Header */}
+      {/* Header: Clean, modern brand identity (No "libre para sa lahat") */}
       <header className="builder-header">
         <div className="header-left">
           <h1 className="brand-title">SendBloom</h1>
-          <p className="brand-subtitle">Bulaklak na hindi nalalanta · Libre para sa lahat</p>
+          <p className="brand-subtitle">Bulaklak na hindi nalalanta</p>
         </div>
         <button
           type="button"
@@ -266,7 +341,7 @@ export default function Builder() {
         </button>
       </header>
 
-      {/* Sticky Compact Bouquet Stage (Laging kita ang gawa mo) */}
+      {/* Bouquet Stage */}
       <section className="builder-stage-wrapper">
         <div className="builder-stage-card">
           <div className="stage-top-bar">
@@ -368,7 +443,7 @@ export default function Builder() {
         </div>
       </section>
 
-      {/* Navigation Tabs (Malinaw na mga hakbang) */}
+      {/* Navigation Tabs */}
       <nav className="builder-tabs" aria-label="Mga hakbang sa paggawa">
         <button
           type="button"
@@ -407,8 +482,19 @@ export default function Builder() {
           type="button"
           className={`tab-btn ${activeTab === "send" ? "active" : ""}`}
           onClick={() => {
-            setActiveTab("send");
-            if (soundEnabled) playRustle();
+            // Guard: Cannot proceed to Send tab if required fields in Letter are empty!
+            if (!to.trim() || !from.trim()) {
+              setTriedSubmit(true);
+              setActiveTab("letter");
+              showToast("Pakilagay muna ang 'Para kay' at 'Mula kay' bago magpadala ✍️");
+              return;
+            }
+            if (!link) {
+              generateLink();
+            } else {
+              setActiveTab("send");
+              if (soundEnabled) playRustle();
+            }
           }}
         >
           <Send size={17} />
@@ -421,12 +507,9 @@ export default function Builder() {
         {/* TAB 1: MGA BULAKLAK AT PRESETS */}
         {activeTab === "flowers" && (
           <div className="tab-pane">
-            {/* Occasion Presets */}
+            {/* Occasion Presets (Mother's Day, Father's Day, Teacher's Day, etc.) */}
             <div className="presets-box">
-              <div className="section-label">
-                <Sparkles size={14} className="inline mr-1 text-pink-500" />
-                Mabilisang Presets Ayon sa Okasyon (One-Tap)
-              </div>
+              <div className="section-label">Mabilisang Presets Ayon sa Okasyon</div>
               <div className="presets-grid">
                 {PRESETS.map((p) => {
                   const isSelected = selectedPresetId === p.id;
@@ -499,7 +582,7 @@ export default function Builder() {
                 </button>
               </div>
 
-              <div className="actions-row mt-2">
+              <div className="actions-row mt-3">
                 <button type="button" className="secondary-btn" onClick={randomizeBouquet}>
                   <Shuffle size={15} className="inline mr-1" /> 🎲 Ikaw na Bahala
                 </button>
@@ -521,10 +604,7 @@ export default function Builder() {
               <button
                 type="button"
                 className="step-next-btn mt-4"
-                onClick={() => {
-                  setActiveTab("wrap");
-                  if (soundEnabled) playRustle();
-                }}
+                onClick={validateAndProceedToWrap}
               >
                 Susunod: Balot at Estilo ➔
               </button>
@@ -576,7 +656,7 @@ export default function Builder() {
               <button
                 type="button"
                 className="step-next-btn"
-                onClick={() => setActiveTab("letter")}
+                onClick={validateAndProceedToLetter}
               >
                 Susunod: Sulat at Kanta ➔
               </button>
@@ -628,18 +708,26 @@ export default function Builder() {
             </div>
 
             <div className="fields-group mt-4">
+              {/* Para kay (REQUIRED - CANNOT PROCEED WITHOUT IT) */}
               <label className="input-field">
-                <span className="field-label">Para kay (Pangalan o Palayaw):</span>
+                <div className="field-header-row">
+                  <span className="field-label">Para kay:</span>
+                  <span className="field-required-tag">* Kinakailangan</span>
+                </div>
                 <input
                   type="text"
-                  className="text-input"
-                  placeholder="Hal. Maria, Mahal ko, Bossing..."
+                  className={`text-input ${triedSubmit && !to.trim() ? "input-field-error" : ""}`}
+                  placeholder="Pangalan o Palayaw (hal. Maria, Mahal ko, Nanay)..."
                   value={to}
                   maxLength={MAX_NAME}
                   onChange={(e) => setTo(e.target.value)}
                 />
+                {triedSubmit && !to.trim() && (
+                  <span className="field-error-hint">⚠️ Kinakailangan ilagay ang pangalan sa &ldquo;Para kay&rdquo;</span>
+                )}
               </label>
 
+              {/* Mensahe */}
               <label className="input-field mt-3">
                 <span className="field-label">Ang Iyong Sulat / Mensahe:</span>
                 <textarea
@@ -655,46 +743,62 @@ export default function Builder() {
                 </div>
               </label>
 
+              {/* Mula kay (REQUIRED - CANNOT PROCEED WITHOUT IT) */}
               <label className="input-field mt-3">
-                <span className="field-label">Mula kay (Pangalan mo):</span>
+                <div className="field-header-row">
+                  <span className="field-label">Mula kay:</span>
+                  <span className="field-required-tag">* Kinakailangan</span>
+                </div>
                 <input
                   type="text"
-                  className="text-input"
-                  placeholder="Hal. Juan, Secret Admirer..."
+                  className={`text-input ${triedSubmit && !from.trim() ? "input-field-error" : ""}`}
+                  placeholder="Pangalan mo (hal. Juan, Anak mo, Secret Admirer)..."
                   value={from}
                   maxLength={MAX_NAME}
                   onChange={(e) => setFrom(e.target.value)}
                 />
+                {triedSubmit && !from.trim() && (
+                  <span className="field-error-hint">⚠️ Kinakailangan ilagay ang iyong pangalan sa &ldquo;Mula kay&rdquo;</span>
+                )}
               </label>
 
+              {/* Kalakip na Kanta na may Dropdown */}
               <div className="song-selector-section mt-4">
                 <span className="field-label flex items-center gap-1">
                   <Music size={15} className="text-rose-500 inline mr-1" />
-                  Kalakip na Kanta (Hindi kailangan ng link!):
+                  Kalakip na Kanta (Hindi kailangan ng link):
                 </span>
                 <span className="field-sub-hint">
-                  I-type lang ang pamagat at artist, o pumili sa mga sikat na kanta sa ibaba:
+                  Pumili sa drop-down ng mga sikat na kanta, o i-type ang sariling pamagat:
                 </span>
 
-                {/* Suggested Song Chips */}
-                <div className="suggested-songs-chips mt-2">
-                  {SUGGESTED_SONGS.map((item) => {
-                    const isSelected = songTitle === item.title && songArtist === item.artist;
-                    return (
-                      <button
-                        key={item.title}
-                        type="button"
-                        className={`song-chip ${isSelected ? "selected-song-chip" : ""}`}
-                        onClick={() => {
-                          setSongTitle(item.title);
-                          setSongArtist(item.artist);
-                          showToast(`Napiling kanta: ${item.title} 🎵`);
-                        }}
-                      >
-                        🎵 {item.title} · <small>{item.artist}</small>
-                      </button>
-                    );
-                  })}
+                {/* Song Selection Dropdown */}
+                <div className="song-dropdown-container mt-2">
+                  <select
+                    className="song-dropdown-select"
+                    value={
+                      SUGGESTED_SONGS.some((s) => s.title === songTitle && s.artist === songArtist)
+                        ? `${songTitle} - ${songArtist}`
+                        : ""
+                    }
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (!val) return;
+                      const found = SUGGESTED_SONGS.find((s) => `${s.title} - ${s.artist}` === val);
+                      if (found) {
+                        setSongTitle(found.title);
+                        setSongArtist(found.artist);
+                        showToast(`Napiling kanta: ${found.title} 🎵`);
+                      }
+                    }}
+                  >
+                    <option value="">-- Pumili sa mga Sikat na Kanta (Drop-down) --</option>
+                    {SUGGESTED_SONGS.map((item) => (
+                      <option key={`${item.title}-${item.artist}`} value={`${item.title} - ${item.artist}`}>
+                        🎵 {item.title} — {item.artist}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="song-inputs-row mt-3">
@@ -736,7 +840,6 @@ export default function Builder() {
                 type="button"
                 className="step-next-btn"
                 onClick={generateLink}
-                disabled={!canMake}
               >
                 Tapusin at Gumawa ng Link ➔
               </button>
@@ -750,18 +853,17 @@ export default function Builder() {
             {!link ? (
               <div className="ready-generate-card">
                 <div className="ready-icon">💌</div>
-                <h3>Handa na ba ang iyong bouquet?</h3>
+                <h3>Kulang pa ang detalye ng sulat</h3>
                 <p>
-                  Pindutin ang buton sa ibaba para gawin ang libreng pribadong link na ipapadala mo sa Messenger o chat!
+                  Kailangan may nakalagay sa &ldquo;Para kay&rdquo; at &ldquo;Mula kay&rdquo; bago mabuo ang bouquet link.
                 </p>
                 <button
                   type="button"
                   className="primary-btn big-send-btn pulse-glow"
-                  onClick={generateLink}
-                  disabled={!canMake}
+                  onClick={() => setActiveTab("letter")}
                 >
-                  <Send size={18} className="inline mr-2" />
-                  Gawin ang Bouquet Link!
+                  <Mail size={18} className="inline mr-2" />
+                  Punan ang Sulat (Para kay / Mula kay)
                 </button>
               </div>
             ) : (
@@ -835,10 +937,166 @@ export default function Builder() {
         </div>
       )}
 
-      {/* Footer */}
+      {/* Footer: Updated with SendBloom · Digital bouquet & Buy us coffee */}
       <footer className="builder-footer">
-        <p>SendBloom · Digital bouquet na hindi nalalanta at hindi kailangang bilhin</p>
+        <p className="footer-brand">SendBloom · Digital bouquet</p>
+        <button
+          type="button"
+          className="coffee-footer-btn"
+          onClick={() => setShowCoffeeModal(true)}
+        >
+          <Coffee size={14} className="inline mr-1.5 text-amber-600" />
+          Buy us coffee
+        </button>
       </footer>
+
+      {/* Buy Us Coffee GCash Modal */}
+      {showCoffeeModal && (
+        <div
+          className="coffee-modal-overlay"
+          onClick={() => setShowCoffeeModal(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="coffee-modal-title"
+        >
+          <div className="coffee-modal-card" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              className="coffee-modal-close"
+              onClick={() => setShowCoffeeModal(false)}
+              aria-label="Isara"
+            >
+              ✕
+            </button>
+
+            <div className="coffee-modal-header">
+              <div className="coffee-icon-badge">☕</div>
+              <h3 id="coffee-modal-title" className="coffee-modal-title">Buy Us a Coffee</h3>
+              <p className="coffee-modal-desc">
+                Salamat sa pagsuporta sa SendBloom! Ang inyong tulong ay malaking bagay upang mapanatiling mabilis, maayos, at patuloy na makapaghatid ng ligaya sa pamamagitan ng digital bouquets.
+              </p>
+            </div>
+
+            {/* GCash Card */}
+            <div className="gcash-card">
+              <div className="gcash-top-bar">
+                <span className="gcash-logo-text">G) GCash</span>
+                <span className="gcash-scan-tag">Scan to Pay</span>
+              </div>
+
+              {/* QR Code SVG Placeholder */}
+              <div className="gcash-qr-container">
+                <svg
+                  viewBox="0 0 200 200"
+                  width="180"
+                  height="180"
+                  className="gcash-qr-svg"
+                  role="img"
+                  aria-label="GCash QR Code Placeholder"
+                >
+                  {/* Outer Background */}
+                  <rect width="200" height="200" fill="#ffffff" rx="12" />
+
+                  {/* Corner Position Detection Squares (Top-Left) */}
+                  <rect x="20" y="20" width="46" height="46" rx="6" fill="#007dfe" />
+                  <rect x="26" y="26" width="34" height="34" rx="4" fill="#ffffff" />
+                  <rect x="32" y="32" width="22" height="22" rx="3" fill="#007dfe" />
+
+                  {/* Corner Position Detection Squares (Top-Right) */}
+                  <rect x="134" y="20" width="46" height="46" rx="6" fill="#007dfe" />
+                  <rect x="140" y="26" width="34" height="34" rx="4" fill="#ffffff" />
+                  <rect x="146" y="32" width="22" height="22" rx="3" fill="#007dfe" />
+
+                  {/* Corner Position Detection Squares (Bottom-Left) */}
+                  <rect x="20" y="134" width="46" height="46" rx="6" fill="#007dfe" />
+                  <rect x="26" y="140" width="34" height="34" rx="4" fill="#ffffff" />
+                  <rect x="32" y="146" width="22" height="22" rx="3" fill="#007dfe" />
+
+                  {/* QR Matrix Bits */}
+                  <rect x="74" y="22" width="8" height="8" fill="#1e293b" />
+                  <rect x="88" y="22" width="8" height="8" fill="#1e293b" />
+                  <rect x="102" y="22" width="8" height="8" fill="#1e293b" />
+                  <rect x="116" y="22" width="8" height="8" fill="#1e293b" />
+
+                  <rect x="74" y="36" width="8" height="8" fill="#1e293b" />
+                  <rect x="102" y="36" width="8" height="8" fill="#1e293b" />
+
+                  <rect x="88" y="50" width="8" height="8" fill="#1e293b" />
+                  <rect x="116" y="50" width="8" height="8" fill="#1e293b" />
+
+                  <rect x="22" y="74" width="8" height="8" fill="#1e293b" />
+                  <rect x="36" y="74" width="8" height="8" fill="#1e293b" />
+                  <rect x="50" y="74" width="8" height="8" fill="#1e293b" />
+                  <rect x="64" y="74" width="8" height="8" fill="#1e293b" />
+                  <rect x="78" y="74" width="8" height="8" fill="#1e293b" />
+                  <rect x="122" y="74" width="8" height="8" fill="#1e293b" />
+                  <rect x="150" y="74" width="8" height="8" fill="#1e293b" />
+                  <rect x="164" y="74" width="8" height="8" fill="#1e293b" />
+
+                  <rect x="22" y="88" width="8" height="8" fill="#1e293b" />
+                  <rect x="50" y="88" width="8" height="8" fill="#1e293b" />
+                  <rect x="136" y="88" width="8" height="8" fill="#1e293b" />
+                  <rect x="164" y="88" width="8" height="8" fill="#1e293b" />
+
+                  <rect x="22" y="102" width="8" height="8" fill="#1e293b" />
+                  <rect x="36" y="102" width="8" height="8" fill="#1e293b" />
+                  <rect x="64" y="102" width="8" height="8" fill="#1e293b" />
+                  <rect x="122" y="102" width="8" height="8" fill="#1e293b" />
+                  <rect x="150" y="102" width="8" height="8" fill="#1e293b" />
+
+                  <rect x="74" y="122" width="8" height="8" fill="#1e293b" />
+                  <rect x="102" y="122" width="8" height="8" fill="#1e293b" />
+                  <rect x="116" y="122" width="8" height="8" fill="#1e293b" />
+                  <rect x="150" y="122" width="8" height="8" fill="#1e293b" />
+
+                  <rect x="74" y="136" width="8" height="8" fill="#1e293b" />
+                  <rect x="88" y="136" width="8" height="8" fill="#1e293b" />
+                  <rect x="136" y="136" width="8" height="8" fill="#1e293b" />
+                  <rect x="164" y="136" width="8" height="8" fill="#1e293b" />
+
+                  <rect x="88" y="150" width="8" height="8" fill="#1e293b" />
+                  <rect x="102" y="150" width="8" height="8" fill="#1e293b" />
+                  <rect x="122" y="150" width="8" height="8" fill="#1e293b" />
+
+                  <rect x="74" y="164" width="8" height="8" fill="#1e293b" />
+                  <rect x="116" y="164" width="8" height="8" fill="#1e293b" />
+                  <rect x="136" y="164" width="8" height="8" fill="#1e293b" />
+                  <rect x="164" y="164" width="8" height="8" fill="#1e293b" />
+
+                  {/* Center GCash Shield Badge */}
+                  <rect x="82" y="82" width="36" height="36" rx="8" fill="#007dfe" stroke="#ffffff" strokeWidth="3" />
+                  <text x="100" y="104" textAnchor="middle" fill="#ffffff" fontSize="14" fontWeight="bold" fontFamily="sans-serif">
+                    G
+                  </text>
+                </svg>
+              </div>
+
+              {/* Account Details */}
+              <div className="gcash-info-box">
+                <span className="gcash-account-name">SendBloom Dev (Nash M.)</span>
+                <span className="gcash-account-number">0917 123 4567</span>
+              </div>
+
+              <button
+                type="button"
+                className="gcash-copy-btn"
+                onClick={copyGCashNumber}
+              >
+                {copiedGCash ? <Check size={15} className="inline mr-1" /> : <Copy size={15} className="inline mr-1" />}
+                {copiedGCash ? "Nakopya na ang GCash Number!" : "Kopyahin ang GCash Number"}
+              </button>
+            </div>
+
+            <button
+              type="button"
+              className="coffee-modal-done-btn"
+              onClick={() => setShowCoffeeModal(false)}
+            >
+              Isara
+            </button>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

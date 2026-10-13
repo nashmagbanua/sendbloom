@@ -38,6 +38,10 @@ export const SUGGESTED_SONGS = [
   { title: "Tahanan", artist: "Adie" },
   { title: "Golden Hour", artist: "JVKE" },
   { title: "Misteryoso", artist: "Cup of Joe" },
+  { title: "Paninindigan Kita", artist: "Ben&Ben" },
+  { title: "Mahika", artist: "Adie & Janine Berdin" },
+  { title: "Perfect", artist: "Ed Sheeran" },
+  { title: "Araw-Araw", artist: "Ben&Ben" },
 ];
 
 export const FLOWER_ORDER: FlowerType[] = ["rose", "tulip", "daisy", "sunflower", "lily"];
@@ -89,6 +93,58 @@ export type Preset = {
 };
 
 export const PRESETS: Preset[] = [
+  {
+    id: "mothers_day",
+    name: "Mother's Day / Pang-Nanay 🌸",
+    emoji: "🤱",
+    desc: "Matatamis na rosas at liryo para sa pinakamamahal na Ina",
+    wrap: "rose",
+    cardTheme: "romantic",
+    sticker: "heart",
+    defaultMsg: "Happy Mother's Day, Nanay! Salamat sa walang kapantay na pagmamahal, aruga, at sakripisyo mo para sa amin. Mahal na mahal po kita! 🌹💖",
+    flowers: [
+      { t: "rose", c: 1 },
+      { t: "rose", c: 0 },
+      { t: "tulip", c: 0 },
+      { t: "lily", c: 1 },
+      { t: "daisy", c: 0 },
+      { t: "tulip", c: 4 },
+    ],
+  },
+  {
+    id: "fathers_day",
+    name: "Father's Day / Pang-Tatay 👔",
+    emoji: "👨",
+    desc: "Matingkad na sunflower at kraft wrap para sa haligi ng tahanan",
+    wrap: "kraft",
+    cardTheme: "parchment",
+    sticker: "sparkles",
+    defaultMsg: "Happy Father's Day, Tatay/Papa! Maraming salamat sa iyong sipag, gabay, at lakas para sa ating pamilya. Saludo ako sa iyo palagi! 🌻💪",
+    flowers: [
+      { t: "sunflower", c: 0 },
+      { t: "sunflower", c: 1 },
+      { t: "daisy", c: 3 },
+      { t: "tulip", c: 1 },
+      { t: "lily", c: 2 },
+    ],
+  },
+  {
+    id: "teachers_day",
+    name: "Teacher's Day / Pang-Guro 📚",
+    emoji: "🧑‍🏫",
+    desc: "Kagalang-galang na liryo at daisies bilang pasasalamat sa guro",
+    wrap: "mint",
+    cardTheme: "classic",
+    sticker: "sparkles",
+    defaultMsg: "Happy Teacher's Day po! Maraming salamat sa inyong pasensya, talino, at walang sawang paggabay sa aming kinabukasan. Mabuhay po kayo! 💐📖",
+    flowers: [
+      { t: "lily", c: 0 },
+      { t: "daisy", c: 0 },
+      { t: "tulip", c: 1 },
+      { t: "rose", c: 2 },
+      { t: "sunflower", c: 0 },
+    ],
+  },
   {
     id: "birthday",
     name: "Pang-Birthday 🎂",
