@@ -16,6 +16,7 @@ import {
   MAX_MSG,
   MAX_NAME,
   PRESETS,
+  SUGGESTED_SONGS,
   StickerId,
   STICKER_META,
   STICKER_ORDER,
@@ -40,6 +41,7 @@ import {
   Trash2,
   Check,
   Plus,
+  Music,
 } from "lucide-react";
 
 const STARTER: Flower[] = [
@@ -62,7 +64,8 @@ export default function Builder() {
   const [to, setTo] = useState("");
   const [from, setFrom] = useState("");
   const [msg, setMsg] = useState("");
-  const [song, setSong] = useState("");
+  const [songTitle, setSongTitle] = useState("");
+  const [songArtist, setSongArtist] = useState("");
   const [link, setLink] = useState("");
   const [toast, setToast] = useState("");
   const [activeTab, setActiveTab] = useState<StepTab>("flowers");
@@ -83,7 +86,7 @@ export default function Builder() {
   useEffect(() => {
     setLink("");
     setCopied(false);
-  }, [flowers, wrap, cardTheme, sticker, to, from, msg, song]);
+  }, [flowers, wrap, cardTheme, sticker, to, from, msg, songTitle, songArtist]);
 
   function showToast(text: string) {
     setToast(text);
@@ -95,7 +98,7 @@ export default function Builder() {
     const next = !soundEnabled;
     setSoundEnabled(next);
     setSoundMuted(!next);
-    showToast(next ? "May tunog na 🔊" : "Naka-mute 🔇");
+    showToast(next ? "Tunog: On 🔊" : "Naka-mute 🔇");
   }
 
   function pickType(t: FlowerType) {
@@ -176,8 +179,7 @@ export default function Builder() {
     showToast(`Inilapat ang preset para sa ${p.name}! ✨`);
   }
 
-  const songOk = song.trim() === "" || !!safeLink(song);
-  const canMake = flowers.length > 0 && songOk;
+  const canMake = flowers.length > 0;
 
   function generateLink() {
     if (!canMake) return;
@@ -187,7 +189,8 @@ export default function Builder() {
       msg,
       w: wrap,
       f: flowers,
-      s: song.trim() ? song : undefined,
+      st: songTitle.trim() || undefined,
+      sa: songArtist.trim() || undefined,
       k: sticker,
       c: cardTheme,
     };
@@ -237,9 +240,9 @@ export default function Builder() {
       showToast("Nakopya ang link! I-paste sa Messenger chat 💬");
       return;
     }
-    // Directly target the Messenger mobile app without opening browser tabs
-    window.location.href = `fb-messenger://share/?link=${encodeURIComponent(link)}`;
+    // Launch Messenger app directly without opening browser tabs
     showToast("Binubuksan ang Messenger app... 💬");
+    window.location.href = `fb-messenger://share?link=${encodeURIComponent(link)}`;
   }
 
   const colors = FLOWER_META[type].colors;
@@ -664,28 +667,61 @@ export default function Builder() {
                 />
               </label>
 
-              <label className="input-field mt-3">
-                <span className="field-label">
-                  Link ng Kanta (Spotify / YouTube - Hindi sapilitan):
+              <div className="song-selector-section mt-4">
+                <span className="field-label flex items-center gap-1">
+                  <Music size={15} className="text-rose-500 inline mr-1" />
+                  Kalakip na Kanta (Hindi kailangan ng link!):
                 </span>
-                <input
-                  type="url"
-                  className={`text-input ${song && !songOk ? "input-error" : ""}`}
-                  placeholder="https://open.spotify.com/track/... o YouTube link"
-                  value={song}
-                  onChange={(e) => setSong(e.target.value)}
-                />
-                {!songOk && song && (
-                  <span className="field-error-text">
-                    Dapat valid https:// link sa YouTube o Spotify.
+                <span className="field-sub-hint">
+                  I-type lang ang pamagat at artist, o pumili sa mga sikat na kanta sa ibaba:
+                </span>
+
+                {/* Suggested Song Chips */}
+                <div className="suggested-songs-chips mt-2">
+                  {SUGGESTED_SONGS.map((item) => {
+                    const isSelected = songTitle === item.title && songArtist === item.artist;
+                    return (
+                      <button
+                        key={item.title}
+                        type="button"
+                        className={`song-chip ${isSelected ? "selected-song-chip" : ""}`}
+                        onClick={() => {
+                          setSongTitle(item.title);
+                          setSongArtist(item.artist);
+                          showToast(`Napiling kanta: ${item.title} 🎵`);
+                        }}
+                      >
+                        🎵 {item.title} · <small>{item.artist}</small>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="song-inputs-row mt-3">
+                  <input
+                    type="text"
+                    className="text-input"
+                    placeholder="Pamagat ng Kanta (hal. Palagi, Pasilyo, Dilaw...)"
+                    value={songTitle}
+                    maxLength={60}
+                    onChange={(e) => setSongTitle(e.target.value)}
+                  />
+                  <input
+                    type="text"
+                    className="text-input mt-2"
+                    placeholder="Mang-aawit / Artist (Opsyonal — kung walang nilagay, pamagat lang ang hahanapin)"
+                    value={songArtist}
+                    maxLength={50}
+                    onChange={(e) => setSongArtist(e.target.value)}
+                  />
+                </div>
+
+                {songTitle.trim() && (
+                  <span className="field-success-text mt-1 block">
+                    ✓ Awtomatikong tutugtog ang &ldquo;{songTitle}&rdquo; pagkapindot ng Wax Seal!
                   </span>
                 )}
-                {songOk && song && (
-                  <span className="field-success-text">
-                    ✓ May umiikot na vinyl player sa pagbukas ng bouquet!
-                  </span>
-                )}
-              </label>
+              </div>
             </div>
 
             <div className="actions-row mt-6">
@@ -735,7 +771,7 @@ export default function Builder() {
                 </div>
                 <h3 className="share-title">Nagawa na ang Digital Bouquet!</h3>
                 <p className="share-desc">
-                  Ipadala ito sa Messenger o chat. Pagkabukas nila, may confetti at bubukadkad ang mga bulaklak kasabay ng iyong liham!
+                  Ipadala ito sa Messenger o chat. Pagkabukas ng selyo, maririnig ang kanta kasabay ng iyong liham at lumilipad na confetti!
                 </p>
 
                 {/* Link Box */}

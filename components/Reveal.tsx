@@ -11,13 +11,16 @@ import {
 } from "@/lib/constants";
 import {
   playBloomCelebration,
+  playMelodicBackground,
   playRustle,
   playSealBreak,
+  stopMelodicBackground,
 } from "@/lib/audio";
 import {
-  RotateCcw,
   Heart,
   Music,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 
 type PetalSpec = {
@@ -64,32 +67,53 @@ export default function Reveal({
   const [flash, setFlash] = useState(false);
   const [showNote, setShowNote] = useState(false);
   const [typed, setTyped] = useState("");
-  const [runId, setRunId] = useState(0);
+  const [runId] = useState(0);
   const [petals, setPetals] = useState<PetalSpec[]>([]);
   const [isPlayingMusic, setIsPlayingMusic] = useState(false);
-  const [reactions, setReactions] = useState<{ id: number; x: number; y: number }[]>([]);
-  const [reactionCount, setReactionCount] = useState(0);
+  const [isAudioMuted, setIsAudioMuted] = useState(false);
+
+  const [resolvedSong, setResolvedSong] = useState<{
+    audioUrl?: string;
+    title?: string;
+    artist?: string;
+  } | null>(null);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const rafRef = useRef(0);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const reduced = useRef(false);
 
-  // Extract YouTube ID if song is a YouTube link
-  let ytId: string | null = null;
-  if (data.s) {
-    const ytMatch = data.s.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-    if (ytMatch) {
-      ytId = ytMatch[1];
-    }
-  }
-
   useEffect(() => {
     reduced.current = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     setPetals(makePetals(data));
+
+    // Pre-resolve song audio stream immediately on mount
+    const title = data.st || "";
+    const artist = data.sa || "";
+
+    if (title || artist) {
+      fetch(`/api/song?title=${encodeURIComponent(title)}&artist=${encodeURIComponent(artist)}`)
+        .then((r) => r.json())
+        .then((res) => {
+          if (res.found && res.audioUrl) {
+            setResolvedSong({
+              audioUrl: res.audioUrl,
+              title: res.title || title,
+              artist: res.artist || artist,
+            });
+            if (audioRef.current) {
+              audioRef.current.src = res.audioUrl;
+            }
+          }
+        })
+        .catch(() => {});
+    }
+
     return () => {
       timers.current.forEach(clearTimeout);
       cancelAnimationFrame(rafRef.current);
+      stopMelodicBackground();
     };
   }, [data]);
 
@@ -97,21 +121,6 @@ export default function Reveal({
     const t = setTimeout(fn, ms);
     timers.current.push(t);
   }, []);
-
-  const sendHeartReaction = (e: React.MouseEvent) => {
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    const newHeart = {
-      id: Date.now() + Math.random(),
-      x: rect.left + rect.width / 2 + (Math.random() - 0.5) * 60,
-      y: rect.top,
-    };
-    setReactions((prev) => [...prev.slice(-20), newHeart]);
-    setReactionCount((c) => c + 1);
-    playBloomCelebration();
-    try {
-      navigator.vibrate?.(25);
-    } catch {}
-  };
 
   const burstConfetti = useCallback(() => {
     const cv = canvasRef.current;
@@ -184,10 +193,23 @@ export default function Reveal({
       navigator.vibrate?.([30, 50, 40]);
     } catch {}
 
-    // 2. Play background music immediately
+    // 2. Play music immediately within user tap handler
     setIsPlayingMusic(true);
+    const audioEl = audioRef.current;
+    if (audioEl && (audioEl.src || resolvedSong?.audioUrl)) {
+      if (!audioEl.src && resolvedSong?.audioUrl) {
+        audioEl.src = resolvedSong.audioUrl;
+      }
+      audioEl.play().catch(() => {
+        // Fallback to synthesized melody if external audio is blocked
+        playMelodicBackground();
+      });
+    } else {
+      // Play sweet synthesized acoustic chord melody
+      playMelodicBackground();
+    }
 
-    // 3. Trigger open animations & confetti
+    // 3. Trigger reveal animations & confetti
     setOpened(true);
     setFlash(true);
     later(() => setFlash(false), 700);
@@ -212,23 +234,18 @@ export default function Reveal({
         if (i < full.length) later(step, 24);
       };
       step();
-    }, 800);
+    }, 700);
   };
 
-  const replay = () => {
-    timers.current.forEach(clearTimeout);
-    cancelAnimationFrame(rafRef.current);
-    const cv = canvasRef.current;
-    if (cv) {
-      const ctx = cv.getContext("2d");
-      ctx?.clearRect(0, 0, cv.width, cv.height);
+  const toggleMute = () => {
+    const nextMuted = !isAudioMuted;
+    setIsAudioMuted(nextMuted);
+    if (audioRef.current) {
+      audioRef.current.muted = nextMuted;
     }
-    setOpened(false);
-    setShowNote(false);
-    setFlash(false);
-    setTyped("");
-    setIsPlayingMusic(false);
-    setRunId((n) => n + 1);
+    if (nextMuted) {
+      stopMelodicBackground();
+    }
   };
 
   const currentTheme = CARD_THEMES[data.c || "classic"] || CARD_THEMES.classic;
@@ -236,6 +253,14 @@ export default function Reveal({
 
   return (
     <div className="reveal-page-wrapper">
+      {/* Hidden audio element for instant music playback upon wax seal tap */}
+      <audio
+        ref={audioRef}
+        preload="auto"
+        loop
+        style={{ display: "none" }}
+      />
+
       {/* Floating Petals */}
       {opened &&
         petals.map((p, i) => (
@@ -274,19 +299,6 @@ export default function Reveal({
         </div>
       )}
 
-      {/* Hidden background audio when opened */}
-      {isPlayingMusic && ytId && (
-        <iframe
-          src={`https://www.youtube.com/embed/${ytId}?autoplay=1&enablejsapi=1&loop=1`}
-          style={{ position: "absolute", width: 1, height: 1, opacity: 0, pointerEvents: "none" }}
-          allow="autoplay"
-          title="Background music"
-        />
-      )}
-      {isPlayingMusic && data.s && !ytId && (
-        <audio src={data.s} autoPlay loop style={{ display: "none" }} />
-      )}
-
       {/* MAIN PRESENTATION CONTAINER */}
       <div className="revealed-content-stage">
         {flash && <div className="reveal-flash-effect" />}
@@ -300,19 +312,19 @@ export default function Reveal({
           )}
         </div>
 
-        {/* Full Bouquet (Always prominently visible, never hidden) */}
+        {/* Full Bouquet (Always prominently visible upon opening the link, never hidden!) */}
         <div className="blooming-bouquet-display mt-2">
-          <BouquetSVG data={{ f: data.f, w: data.w }} animated={opened} />
+          <BouquetSVG data={{ f: data.f, w: data.w }} animated={false} />
         </div>
 
-        {/* WAX SEAL ON CARD / ENVELOPE BUTTON (Unopened state) */}
+        {/* WAX SEAL (Selyo) on envelope/card (Unopened state) */}
         {!opened && (
           <div className="wax-seal-hero-wrap mt-4">
             <button
               type="button"
               className="wax-seal-badge pulse-seal"
               onClick={openGift}
-              aria-label="Pindutin ang wax seal para buksan ang sulat"
+              aria-label="Pindutin ang wax seal para basahin ang liham"
             >
               <span className="seal-emblem">{stickerItem.icon}</span>
             </button>
@@ -322,15 +334,26 @@ export default function Reveal({
           </div>
         )}
 
-        {/* Now Playing Indicator (Subtle, no ugly video box) */}
+        {/* Now Playing Music Indicator (Plays immediately upon tapping wax seal) */}
         {opened && isPlayingMusic && (
           <div className="subtle-now-playing-badge mt-3">
-            <Music size={14} className="inline mr-1 animate-spin" />
-            <span>Tumutugtog ang kalakip na kanta 🎶</span>
+            <button
+              type="button"
+              onClick={toggleMute}
+              className="music-mute-toggle-btn inline-flex items-center gap-1.5"
+              title={isAudioMuted ? "I-unmute" : "I-mute"}
+            >
+              <Music size={14} className="inline animate-spin" />
+              <span>
+                Tumutugtog: {resolvedSong?.title || data.st || "Himig ng Pag-ibig"}
+                {(resolvedSong?.artist || data.sa) ? ` · ${resolvedSong?.artist || data.sa}` : ""}
+              </span>
+              {isAudioMuted ? <VolumeX size={13} className="ml-1" /> : <Volume2 size={13} className="ml-1" />}
+            </button>
           </div>
         )}
 
-        {/* Handwritten Letter (Reveals upon tapping wax seal) */}
+        {/* Handwritten Letter (Revealed upon tapping wax seal) */}
         {opened && showNote && (data.msg || data.from || data.to) && (
           <div
             className="handwritten-letter-card"
@@ -374,52 +397,21 @@ export default function Reveal({
           </div>
         )}
 
-        {/* Heart Reaction Shower (When opened) */}
-        {opened && (
-          <div className="reaction-card-box">
-            <button
-              type="button"
-              className="heart-reaction-btn pulse-glow"
-              onClick={sendHeartReaction}
-              aria-label="Pusuan ang natanggap na bouquet"
-            >
-              <Heart size={18} className="inline text-rose-500 fill-rose-500 mr-2" />
-              <span>Pusuan / I-react ({reactionCount})</span>
-            </button>
-            <span className="reaction-hint">I-tap para magpadala ng lumilipad na puso! 💖</span>
-          </div>
-        )}
-
-        {/* Footer Actions */}
+        {/* Footer Actions: Opens new browser tab to make their own bouquet */}
         {opened && (
           <div className="reveal-footer-actions">
-            <button
-              type="button"
-              className="action-pill-btn secondary"
-              onClick={replay}
+            <a
+              href="/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="action-pill-btn primary"
             >
-              <RotateCcw size={15} className="inline mr-1" />
-              Buksan Muli
-            </button>
-
-            <Link href="/" className="action-pill-btn primary">
-              <Heart size={15} className="inline mr-1 text-pink-500" />
-              Gumawa rin ng Sariling Bouquet
-            </Link>
+              <Heart size={15} className="inline mr-1 text-pink-500 fill-pink-500" />
+              Gumawa rin ng Sariling Bouquet ➔
+            </a>
           </div>
         )}
       </div>
-
-      {/* Floating Reaction Hearts */}
-      {reactions.map((h) => (
-        <span
-          key={h.id}
-          className="floating-heart-burst"
-          style={{ left: `${h.x}px`, top: `${h.y}px` }}
-        >
-          💖
-        </span>
-      ))}
     </div>
   );
 }

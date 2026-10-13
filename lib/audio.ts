@@ -3,6 +3,7 @@
 
 let audioCtx: AudioContext | null = null;
 let isMuted = false;
+let bgMusicInterval: ReturnType<typeof setInterval> | null = null;
 
 function getAudioContext(): AudioContext | null {
   try {
@@ -26,6 +27,9 @@ function getAudioContext(): AudioContext | null {
 
 export function setSoundMuted(muted: boolean) {
   isMuted = muted;
+  if (muted && bgMusicInterval) {
+    stopMelodicBackground();
+  }
 }
 
 export function getSoundMuted(): boolean {
@@ -149,4 +153,57 @@ export function playBloomCelebration() {
       osc.stop(now + 0.52);
     });
   } catch {}
+}
+
+/** Sweet acoustic melody progression that plays when opened */
+export function playMelodicBackground() {
+  try {
+    if (isMuted) return;
+    const ctx = getAudioContext();
+    if (!ctx) return;
+
+    stopMelodicBackground();
+
+    const sequence = [
+      [523.25, 659.25, 783.99],       // C chord
+      [587.33, 698.46, 880.00],       // Dm chord
+      [659.25, 783.99, 987.77],       // Em chord
+      [698.46, 880.00, 1046.50],      // F chord
+    ];
+
+    let chordIdx = 0;
+    const playNextChord = () => {
+      if (isMuted) return;
+      const notes = sequence[chordIdx % sequence.length];
+      chordIdx++;
+
+      notes.forEach((freq, i) => {
+        const now = ctx.currentTime + i * 0.12;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(freq, now);
+
+        gain.gain.setValueAtTime(0.06, now);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.2);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start(now);
+        osc.stop(now + 1.25);
+      });
+    };
+
+    playNextChord();
+    bgMusicInterval = setInterval(playNextChord, 2200);
+  } catch {}
+}
+
+export function stopMelodicBackground() {
+  if (bgMusicInterval) {
+    clearInterval(bgMusicInterval);
+    bgMusicInterval = null;
+  }
 }

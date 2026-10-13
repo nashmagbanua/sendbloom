@@ -62,6 +62,8 @@ export function encodeBouquet(b: Bouquet): string {
     f: b.f.slice(0, MAX_FLOWERS).map((x) => FLOWER_META[x.t].code + x.c),
     s: safeLink(b.s),
   };
+  if (b.st?.trim()) payload.st = clean(b.st, 60);
+  if (b.sa?.trim()) payload.sa = clean(b.sa, 50);
   if (b.k && b.k in STICKER_META) payload.k = b.k;
   if (b.c && b.c in CARD_THEMES) payload.c = b.c;
 
@@ -90,6 +92,8 @@ export function decodeBouquet(code: string): Bouquet | null {
     const w: WrapId = raw.w in WRAPS ? raw.w : "kraft";
     const k: StickerId | undefined = raw.k in STICKER_META ? (raw.k as StickerId) : undefined;
     const c: CardTheme | undefined = raw.c in CARD_THEMES ? (raw.c as CardTheme) : undefined;
+    const st: string | undefined = typeof raw.st === "string" ? clean(raw.st, 60) : undefined;
+    const sa: string | undefined = typeof raw.sa === "string" ? clean(raw.sa, 50) : undefined;
 
     return {
       to: clean(raw.t, MAX_NAME),
@@ -98,6 +102,8 @@ export function decodeBouquet(code: string): Bouquet | null {
       w,
       f: flowers,
       s: safeLink(raw.s),
+      st,
+      sa,
       k,
       c,
     };

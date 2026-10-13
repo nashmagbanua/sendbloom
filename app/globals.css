@@ -1277,6 +1277,16 @@ textarea {
   color: #ffffff;
 }
 
+.music-mute-toggle-btn {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+
 .tap-instruction-card {
   display: flex;
   flex-direction: column;

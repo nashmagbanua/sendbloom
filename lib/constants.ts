@@ -11,8 +11,12 @@ export type Bouquet = {
   msg: string;
   w: WrapId;
   f: Flower[];
-  /** optional https link to a song (YouTube, Spotify, ...) */
+  /** optional legacy https link to a song */
   s?: string;
+  /** song title for automatic search & play */
+  st?: string;
+  /** song artist for automatic search & play */
+  sa?: string;
   /** optional sticker on note or seal */
   k?: StickerId;
   /** optional stationery theme */
@@ -23,6 +27,18 @@ export const MAX_FLOWERS = 9;
 export const MAX_NAME = 30;
 export const MAX_MSG = 240;
 export const MAX_LINK = 300;
+export const MAX_SONG_TEXT = 60;
+
+export const SUGGESTED_SONGS = [
+  { title: "Palagi", artist: "TJ Monterde" },
+  { title: "Pasilyo", artist: "SunKissed Lola" },
+  { title: "Dilaw", artist: "Maki" },
+  { title: "Until I Found You", artist: "Stephen Sanchez" },
+  { title: "Ikaw at Ako", artist: "Moira Dela Torre" },
+  { title: "Tahanan", artist: "Adie" },
+  { title: "Golden Hour", artist: "JVKE" },
+  { title: "Misteryoso", artist: "Cup of Joe" },
+];
 
 export const FLOWER_ORDER: FlowerType[] = ["rose", "tulip", "daisy", "sunflower", "lily"];
 
