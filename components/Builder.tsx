@@ -313,7 +313,7 @@ export default function Builder() {
   }
 
   function copyGCashNumber() {
-    const gcashNumber = "0917 123 4567";
+    const gcashNumber = "0956 0757 315";
     navigator.clipboard?.writeText(gcashNumber.replace(/\s+/g, "")).catch(() => {});
     setCopiedGCash(true);
     showToast("Nakopya ang GCash number! 💙");
@@ -766,7 +766,7 @@ export default function Builder() {
               <div className="song-selector-section mt-4">
                 <span className="field-label flex items-center gap-1">
                   <Music size={15} className="text-rose-500 inline mr-1" />
-                  Kalakip na Kanta (Hindi kailangan ng link):
+                  Kalakip na Kanta:
                 </span>
                 <span className="field-sub-hint">
                   Pumili sa drop-down ng mga sikat na kanta, o i-type ang sariling pamagat:
@@ -792,7 +792,7 @@ export default function Builder() {
                       }
                     }}
                   >
-                    <option value="">-- Pumili sa mga Sikat na Kanta (Drop-down) --</option>
+                    <option value="">-- Pumili sa mga Sikat na Kanta --</option>
                     {SUGGESTED_SONGS.map((item) => (
                       <option key={`${item.title}-${item.artist}`} value={`${item.title} - ${item.artist}`}>
                         🎵 {item.title} — {item.artist}
@@ -805,7 +805,7 @@ export default function Builder() {
                   <input
                     type="text"
                     className="text-input"
-                    placeholder="Pamagat ng Kanta (hal. Palagi, Pasilyo, Dilaw...)"
+                    placeholder="Pamagat ng Kanta"
                     value={songTitle}
                     maxLength={60}
                     onChange={(e) => setSongTitle(e.target.value)}
@@ -813,7 +813,7 @@ export default function Builder() {
                   <input
                     type="text"
                     className="text-input mt-2"
-                    placeholder="Mang-aawit / Artist (Opsyonal — kung walang nilagay, pamagat lang ang hahanapin)"
+                    placeholder="Mang-aawit / Artist (Opsyonal)"
                     value={songArtist}
                     maxLength={50}
                     onChange={(e) => setSongArtist(e.target.value)}
@@ -822,7 +822,7 @@ export default function Builder() {
 
                 {songTitle.trim() && (
                   <span className="field-success-text mt-1 block">
-                    ✓ Awtomatikong tutugtog ang &ldquo;{songTitle}&rdquo; pagkapindot ng Wax Seal!
+                    ✓ Awtomatikong tutugtog ang &ldquo;{songTitle}&rdquo; pagkapindot ng Seal!
                   </span>
                 )}
               </div>
@@ -1074,7 +1074,7 @@ export default function Builder() {
               {/* Account Details */}
               <div className="gcash-info-box">
                 <span className="gcash-account-name">SendBloom Dev (Nash M.)</span>
-                <span className="gcash-account-number">0917 123 4567</span>
+                <span className="gcash-account-number">0956 0757 315</span>
               </div>
 
               <button
