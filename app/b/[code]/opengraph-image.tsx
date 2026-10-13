@@ -51,7 +51,7 @@ export default async function Image({ params }: { params: Promise<{ code: string
               borderRadius: 999,
             }}
           >
-            Buksan para bumukadkad
+            Digital Bouquet 💐
           </div>
           <div style={{ display: "flex", marginTop: 36, fontSize: 26, opacity: 0.7 }}>SendBloom</div>
         </div>

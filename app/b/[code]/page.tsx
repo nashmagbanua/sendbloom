@@ -15,8 +15,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   const title = data.to ? `May padala para kay ${data.to} 💐` : "May padala para sa iyo 💐";
   const description = data.from
-    ? `Mula kay ${data.from}. Buksan para bumukadkad ang bulaklak!`
-    : "Buksan para bumukadkad ang bulaklak!";
+    ? `Mula kay ${data.from}. May padalang digital bouquet para sa iyo.`
+    : "May padalang digital bouquet mula sa SendBloom.";
 
   return {
     title,

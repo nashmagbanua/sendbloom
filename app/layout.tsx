@@ -7,10 +7,10 @@ export const metadata: Metadata = {
   ...(siteUrl ? { metadataBase: new URL(siteUrl) } : {}),
   title: "SendBloom — Magpadala ng digital bouquet",
   description:
-    "Gumawa ng sarili mong digital bouquet, lagyan ng mensahe, at ipadala sa Messenger. Libre at isang tap lang para bumukadkad.",
+    "Gumawa ng sarili mong digital bouquet, lagyan ng mensahe, at ipadala sa Messenger. Libreng bulaklak na hindi nalalanta.",
   openGraph: {
     title: "SendBloom — Magpadala ng digital bouquet",
-    description: "Gumawa ng bouquet, lagyan ng mensahe, at ipadala. Libre!",
+    description: "Gumawa ng bouquet, lagyan ng mensahe, at ipadala sa Messenger. Libre!",
     siteName: "SendBloom",
     type: "website",
   },

@@ -225,21 +225,21 @@ export default function Builder() {
     copyLink();
   }
 
-  function messengerShare() {
+  async function messengerShare() {
     if (!link) return;
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopied(true);
+    } catch {}
+
     const isMobile = typeof navigator !== "undefined" && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
     if (!isMobile) {
-      copyLink();
-      showToast("Nakopya ang link — i-paste sa Messenger chat!");
+      showToast("Nakopya ang link! I-paste sa Messenger chat 💬");
       return;
     }
+    // Directly target the Messenger mobile app without opening browser tabs
     window.location.href = `fb-messenger://share/?link=${encodeURIComponent(link)}`;
-    setTimeout(() => {
-      if (!document.hidden) {
-        copyLink();
-        showToast("Nakopya ang link — i-paste sa Messenger chat!");
-      }
-    }, 1400);
+    showToast("Binubuksan ang Messenger app... 💬");
   }
 
   const colors = FLOWER_META[type].colors;
