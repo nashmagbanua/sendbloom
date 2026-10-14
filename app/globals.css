@@ -1,671 +1,2816 @@
-"use client";
-
-import { useCallback, useEffect, useRef, useState } from "react";
-import Link from "next/link";
-import BouquetSVG from "./BouquetSVG";
-import {
-  Bouquet,
-  CARD_THEMES,
-  CLOSINGS,
-  FLOWER_META,
-  SALUTATIONS,
-  STICKER_META,
-} from "@/lib/constants";
-import {
-  getSoundMuted,
-  playBloomCelebration,
-  playMelodicBackground,
-  playRustle,
-  playSealBreak,
-  stopMelodicBackground,
-} from "@/lib/audio";
-import { Heart, RotateCcw, Share2 } from "lucide-react";
-
-type PetalSpec = {
-  left: number;
-  size: number;
-  dur: number;
-  delay: number;
-  color: string;
-  drift: number;
-};
-
-type Stage = 0 | 1 | 2 | 3 | 4 | 5;
-
-function makePetals(data: Bouquet, count: number): PetalSpec[] {
-  const palette = data.f.map((fl) => FLOWER_META[fl.t].colors[fl.c] ?? "#ff8fa3");
-  return Array.from({ length: count }, (_, i) => ({
-    left: Math.random() * 100,
-    size: 12 + Math.random() * 14,
-    dur: 5 + Math.random() * 5,
-    delay: 0.5 + Math.random() * 5,
-    color: palette[i % palette.length],
-    drift: (Math.random() - 0.5) * 160,
-  }));
+:root {
+  --bg: #fff3ee;
+  --card: #ffffff;
+  --ink: #3b1f2b;
+  --muted: #8a6b78;
+  --rose: #e8506a;
+  --rose-dark: #c43553;
+  --blush: #ffd9df;
+  --line: #f0d9d9;
+  --plum: #2a1030;
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, ui-serif, serif;
+  --sans: ui-rounded, "SF Pro Rounded", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --hand: "Segoe Script", "Bradley Hand", "Snell Roundhand", "Comic Sans MS", cursive;
 }
 
-const CONFETTI_COLORS = [
-  "#ff8fa3",
-  "#ffd166",
-  "#ffffff",
-  "#c77dff",
-  "#ff5d8f",
-  "#9be7c4",
-  "#ffb703",
-  "#f72585",
-  "#4cc9f0",
-];
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
 
-function isLowEnd(): boolean {
-  try {
-    return (
-      (typeof navigator !== "undefined" &&
-        typeof navigator.hardwareConcurrency === "number" &&
-        navigator.hardwareConcurrency <= 4) ||
-      false
-    );
-  } catch {
-    return false;
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100dvh;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+/* ───────── Mobile-First Builder Layout ───────── */
+
+.builder-container {
+  max-width: 540px;
+  margin: 0 auto;
+  padding: 12px 16px calc(24px + env(safe-area-inset-bottom, 16px));
+}
+
+.builder-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0 12px;
+}
+
+.header-left {
+  flex: 1;
+}
+
+.brand-title {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--rose-dark);
+}
+
+.brand-subtitle {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.sound-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: #ffffff;
+  color: var(--rose-dark);
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+  transition: transform 0.12s ease;
+}
+
+.sound-toggle-btn:active {
+  transform: scale(0.92);
+}
+
+/* ───────── Sticky Responsive Stage ───────── */
+
+.builder-stage-wrapper {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  margin: 0 -16px;
+  padding: 4px 16px 8px;
+  background: linear-gradient(var(--bg) 84%, rgba(255, 243, 238, 0));
+  transition: all 0.25s ease;
+}
+
+.builder-stage-card {
+  position: relative;
+  background: radial-gradient(circle at 50% 36%, #ffffff 0%, #fff0f3 65%, #ffdce2 100%);
+  border: 1.5px solid var(--line);
+  border-radius: 24px;
+  padding: 10px 14px 12px;
+  box-shadow: 0 8px 24px rgba(196, 53, 83, 0.1);
+}
+
+.stage-top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.flower-meter {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 3px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--rose-dark);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
+}
+
+.wrap-badge-hint {
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.stage-toggle-btn {
+  border: 0;
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.stage-svg-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 180px;
+  max-height: min(34dvh, 260px);
+}
+
+.stage-svg-box svg {
+  display: block;
+  height: min(34dvh, 260px);
+  width: auto;
+  max-width: 100%;
+}
+
+.empty-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  min-height: 170px;
+  color: var(--muted);
+  padding: 0 20px;
+}
+
+.empty-stage p {
+  margin: 0;
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--ink);
+}
+
+.empty-stage span {
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+/* ───────── Selected Flower Interactive Bar ───────── */
+
+.selected-flower-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  background: #fff0f3;
+  border: 1.5px solid var(--rose);
+  border-radius: 12px;
+  padding: 6px 10px;
+  margin-top: 6px;
+  animation: tab-fade-in 0.2s ease-out;
+}
+
+.selected-flower-info {
+  font-size: 11px;
+  color: var(--ink);
+  flex: 1;
+  text-align: left;
+}
+
+.selected-flower-info strong {
+  color: var(--rose-dark);
+}
+
+.selected-flower-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.selected-flower-del {
+  display: flex;
+  align-items: center;
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 0;
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.selected-flower-close {
+  background: #ffffff;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.active-tray-chip {
+  border-color: var(--rose) !important;
+  background: #fff0f3 !important;
+  box-shadow: 0 0 0 2px var(--rose) !important;
+}
+
+.selected-flower-ring {
+  animation: ring-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes ring-pulse {
+  0%, 100% {
+    stroke-width: 2.5;
+    opacity: 0.9;
+  }
+  50% {
+    stroke-width: 4.5;
+    opacity: 0.4;
   }
 }
 
-export default function Reveal({
-  data,
-  preview = false,
-}: {
-  data: Bouquet;
-  preview?: boolean;
-}) {
-  const [stage, setStage] = useState<Stage>(0);
-  const [flash, setFlash] = useState(false);
-  const [typed, setTyped] = useState("");
-  const [showSig, setShowSig] = useState(false);
-  const [letterNudge, setLetterNudge] = useState(false);
-  const [runId, setRunId] = useState(0);
-  const [petals, setPetals] = useState<PetalSpec[]>([]);
-  const [isPlayingMusic, setIsPlayingMusic] = useState(false);
-  const [playingLabel, setPlayingLabel] = useState("");
-  const [usingSynth, setUsingSynth] = useState(false);
-  const [liveMsg, setLiveMsg] = useState("");
+/* ───────── Current Flower Tray ───────── */
 
-  const [resolvedSong, setResolvedSong] = useState<{
-    audioUrl?: string;
-    title?: string;
-    artist?: string;
-  } | null>(null);
-
-  const songPromiseRef = useRef<Promise<typeof resolvedSong> | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const rafRef = useRef(0);
-  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
-  const reduced = useRef(false);
-  const lowEnd = useRef(false);
-  const typingCancel = useRef(false);
-  const fadeInterval = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const later = useCallback((fn: () => void, ms: number) => {
-    const t = setTimeout(fn, ms);
-    timers.current.push(t);
-    return t;
-  }, []);
-
-  const clearTimers = useCallback(() => {
-    timers.current.forEach(clearTimeout);
-    timers.current = [];
-  }, []);
-
-  useEffect(() => {
-    reduced.current = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    lowEnd.current = isLowEnd();
-    const petalCount = reduced.current ? 0 : lowEnd.current ? 10 : 22;
-    setPetals(makePetals(data, petalCount));
-
-    const title = data.st || "";
-    const artist = data.sa || "";
-
-    if (title || artist) {
-      const p = fetch(
-        `/api/song?title=${encodeURIComponent(title)}&artist=${encodeURIComponent(artist)}`
-      )
-        .then((r) => r.json())
-        .then((res) => {
-          if (res.found && res.audioUrl) {
-            const song = {
-              audioUrl: res.audioUrl as string,
-              title: (res.title || title) as string,
-              artist: (res.artist || artist) as string,
-            };
-            setResolvedSong(song);
-            if (audioRef.current) {
-              audioRef.current.src = song.audioUrl;
-            }
-            return song;
-          }
-          return null;
-        })
-        .catch(() => null);
-      songPromiseRef.current = p;
-    }
-
-    return () => {
-      clearTimers();
-      cancelAnimationFrame(rafRef.current);
-      stopMelodicBackground();
-      if (fadeInterval.current) clearInterval(fadeInterval.current);
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.src = "";
-      }
-    };
-  }, [data, clearTimers]);
-
-  const burstConfetti = useCallback(() => {
-    if (reduced.current) return;
-    const cv = canvasRef.current;
-    if (!cv) return;
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const W = window.innerWidth;
-    const H = window.innerHeight;
-    cv.width = W * dpr;
-    cv.height = H * dpr;
-    const ctx = cv.getContext("2d");
-    if (!ctx) return;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-    const count = lowEnd.current ? 60 : 160;
-    const parts = Array.from({ length: count }, () => {
-      const a = Math.random() * Math.PI * 2;
-      const sp = 6 + Math.random() * 15;
-      return {
-        x: W / 2,
-        y: H * 0.42,
-        vx: Math.cos(a) * sp,
-        vy: Math.sin(a) * sp - 7.5,
-        w: 6 + Math.random() * 6,
-        h: 4 + Math.random() * 5,
-        rot: Math.random() * 6,
-        vr: (Math.random() - 0.5) * 0.5,
-        c: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
-        round: Math.random() < 0.4,
-      };
-    });
-
-    cancelAnimationFrame(rafRef.current);
-    const tick = () => {
-      ctx.clearRect(0, 0, W, H);
-      let alive = 0;
-      for (const p of parts) {
-        p.vy += 0.28;
-        p.vx *= 0.985;
-        p.x += p.vx;
-        p.y += p.vy;
-        p.rot += p.vr;
-        if (p.y < H + 30) {
-          alive++;
-          ctx.save();
-          ctx.translate(p.x, p.y);
-          ctx.rotate(p.rot);
-          ctx.fillStyle = p.c;
-          if (p.round) {
-            ctx.beginPath();
-            ctx.arc(0, 0, p.h, 0, Math.PI * 2);
-            ctx.fill();
-          } else {
-            ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
-          }
-          ctx.restore();
-        }
-      }
-      if (alive > 0) rafRef.current = requestAnimationFrame(tick);
-      else ctx.clearRect(0, 0, W, H);
-    };
-    rafRef.current = requestAnimationFrame(tick);
-  }, []);
-
-  const fadeInAudio = useCallback((el: HTMLAudioElement) => {
-    el.volume = 0;
-    el.loop = true;
-    const target = 0.45;
-    if (fadeInterval.current) clearInterval(fadeInterval.current);
-    fadeInterval.current = setInterval(() => {
-      if (!el) return;
-      if (el.volume < target - 0.02) {
-        el.volume = Math.min(target, el.volume + 0.04);
-      } else {
-        el.volume = target;
-        if (fadeInterval.current) {
-          clearInterval(fadeInterval.current);
-          fadeInterval.current = null;
-        }
-      }
-    }, 80);
-
-    // Soft crossfade near the 30s preview end instead of hard loop
-    const onTime = () => {
-      if (!el.duration || !isFinite(el.duration)) return;
-      const remaining = el.duration - el.currentTime;
-      if (remaining < 1.2 && remaining > 0) {
-        el.volume = Math.max(0.05, target * (remaining / 1.2));
-      } else if (el.currentTime < 0.8 && el.volume < target) {
-        el.volume = Math.min(target, el.volume + 0.08);
-      }
-    };
-    el.removeEventListener("timeupdate", onTime);
-    el.addEventListener("timeupdate", onTime);
-  }, []);
-
-  const startMusic = useCallback(
-    async (song: { audioUrl?: string; title?: string; artist?: string } | null) => {
-      setIsPlayingMusic(true);
-      const audioEl = audioRef.current;
-      if (song?.audioUrl && audioEl) {
-        try {
-          if (audioEl.src !== song.audioUrl) audioEl.src = song.audioUrl;
-          audioEl.muted = getSoundMuted();
-          fadeInAudio(audioEl);
-          await audioEl.play();
-          setUsingSynth(false);
-          const label = [song.title, song.artist].filter(Boolean).join(" · ");
-          setPlayingLabel(label || data.st || "Kanta");
-          return;
-        } catch {
-          // fall through to synth
-        }
-      }
-      setUsingSynth(true);
-      setPlayingLabel("Himig ng Pag-ibig");
-      if (!getSoundMuted()) playMelodicBackground();
-    },
-    [data.st, fadeInAudio]
-  );
-
-  const openEnvelope = async () => {
-    if (stage !== 0) return;
-
-    playSealBreak();
-    try {
-      navigator.vibrate?.([30, 50, 40]);
-    } catch {}
-
-    setStage(1);
-    setLiveMsg("Binuksan ang envelope. Lumilitaw ang bouquet.");
-    setFlash(!reduced.current);
-    later(() => setFlash(false), reduced.current ? 200 : 700);
-    playBloomCelebration();
-    if (!reduced.current) burstConfetti();
-
-    // Wait up to ~2s for pending song fetch, then play real song or synth
-    let song = resolvedSong;
-    if (!song && songPromiseRef.current) {
-      try {
-        song = await Promise.race([
-          songPromiseRef.current,
-          new Promise<null>((r) => setTimeout(() => r(null), 2000)),
-        ]);
-      } catch {
-        song = null;
-      }
-    }
-    await startMusic(song);
-
-    // Stage 2: breathe ~2.5s
-    later(() => {
-      setStage(2);
-      setLiveMsg("Nagbubukad ang mga bulaklak.");
-    }, reduced.current ? 400 : 2500);
-
-    // Stage 3: second seal appears
-    later(() => {
-      setStage(3);
-      setLiveMsg("May sulat pa. Pindutin ang selyo.");
-      later(() => setLetterNudge(true), 6000);
-    }, reduced.current ? 600 : 2800);
-  };
-
-  const openLetter = () => {
-    if (stage < 3) return;
-    setLetterNudge(false);
-    playRustle();
-    try {
-      navigator.vibrate?.([20, 30]);
-    } catch {}
-
-    setStage(4);
-    setLiveMsg("Binubuksan ang sulat.");
-    typingCancel.current = false;
-
-    const full = data.msg || "";
-    const salId = data.sal && data.sal in SALUTATIONS ? data.sal : "mahal";
-    // salutation is shown separately; body types out
-
-    if (!full || reduced.current) {
-      setTyped(full);
-      later(() => {
-        setShowSig(true);
-        setStage(5);
-        setLiveMsg("Natapos ang sulat.");
-      }, 400);
-      return;
-    }
-
-    let i = 0;
-    const step = () => {
-      if (typingCancel.current) {
-        setTyped(full);
-        setShowSig(true);
-        setStage(5);
-        return;
-      }
-      const nextChar = full[i];
-      i += 1;
-      setTyped(full.slice(0, i));
-      if (i >= full.length) {
-        later(() => {
-          setShowSig(true);
-          setStage(5);
-          setLiveMsg("Natapos ang sulat.");
-        }, 500);
-        return;
-      }
-      const pause =
-        nextChar === "." || nextChar === "!" || nextChar === "?"
-          ? 180
-          : nextChar === ","
-            ? 90
-            : 28;
-      later(step, pause);
-    };
-    later(step, 350);
-  };
-
-  const finishTyping = () => {
-    if (stage !== 4) return;
-    typingCancel.current = true;
-    setTyped(data.msg || "");
-    setShowSig(true);
-    setStage(5);
-    setLiveMsg("Natapos ang sulat.");
-  };
-
-  const replay = () => {
-    clearTimers();
-    cancelAnimationFrame(rafRef.current);
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-    }
-    stopMelodicBackground();
-    typingCancel.current = true;
-    setStage(0);
-    setFlash(false);
-    setTyped("");
-    setShowSig(false);
-    setLetterNudge(false);
-    setIsPlayingMusic(false);
-    setUsingSynth(false);
-    setPlayingLabel("");
-    setLiveMsg("Handa nang buksan muli.");
-    setRunId((n) => n + 1);
-    const petalCount = reduced.current ? 0 : lowEnd.current ? 10 : 22;
-    setPetals(makePetals(data, petalCount));
-  };
-
-  const thankShare = async () => {
-    const text = "Natanggap ko na ang bulaklak mo, salamat! 💐";
-    const url = typeof window !== "undefined" ? window.location.href : "";
-    if (typeof navigator !== "undefined" && navigator.share) {
-      try {
-        await navigator.share({ title: "SendBloom", text, url });
-        return;
-      } catch (e: unknown) {
-        if (e && typeof e === "object" && "name" in e && (e as { name: string }).name === "AbortError")
-          return;
-      }
-    }
-    try {
-      await navigator.clipboard.writeText(`${text}\n${url}`);
-      setLiveMsg("Nakopya ang mensahe ng pasasalamat.");
-    } catch {
-      setLiveMsg("Hindi makopya. I-share nang manual.");
-    }
-  };
-
-  const currentTheme = CARD_THEMES[data.c || "classic"] || CARD_THEMES.classic;
-  const stickerItem = STICKER_META[data.k || "heart"] || STICKER_META.heart;
-  const salId = data.sal && data.sal in SALUTATIONS ? data.sal : "mahal";
-  const cloId = data.clo && data.clo in CLOSINGS ? data.clo : "nagmamahal";
-  const salutationText = SALUTATIONS[salId].template(data.to || "");
-  const closingText = CLOSINGS[cloId].text;
-
-  const reportEmail = process.env.NEXT_PUBLIC_REPORT_EMAIL || "";
-
-  return (
-    <div className={`reveal-page-wrapper reveal-stage-${stage}`}>
-      <audio ref={audioRef} preload="auto" style={{ display: "none" }} />
-
-      <div className="sr-only" aria-live="polite" aria-atomic="true">
-        {liveMsg}
-      </div>
-
-      {/* Floating Petals — stages 1+ */}
-      {stage >= 1 &&
-        !reduced.current &&
-        petals.map((p, i) => (
-          <span
-            key={`pet-${runId}-${i}`}
-            className="petal"
-            style={
-              {
-                left: `${p.left}%`,
-                width: `${p.size}px`,
-                height: `${p.size * 1.3}px`,
-                background: `radial-gradient(ellipse at 35% 35%, ${p.color}, #a02040)`,
-                animationDuration: `${p.dur}s`,
-                animationDelay: `${p.delay}s`,
-                "--drift": `${p.drift}px`,
-              } as React.CSSProperties
-            }
-          />
-        ))}
-
-      <canvas ref={canvasRef} className="reveal-confetti-canvas" aria-hidden />
-
-      <div className="reveal-ambient-glow" aria-hidden />
-
-      {preview && (
-        <div className="reveal-top-bar">
-          <div className="preview-indicator-badge">
-            <span>👁️ Preview Mode</span>
-            <Link href="/" className="preview-return-link">
-              Bumalik sa Paggawa ➔
-            </Link>
-          </div>
-        </div>
-      )}
-
-      <div className={`revealed-content-stage stage-${stage}`}>
-        {flash && <div className="reveal-flash-effect" aria-hidden />}
-
-        {/* Header only while sealed; hides after opening, returns on "Ulitin" (stage 0) */}
-        {stage === 0 && (
-          <div className="recipient-greeting-header">
-            <span className="greeting-sub">May padala para kay</span>
-            <h1 className="greeting-title">{data.to ? data.to : "sa Iyo"}</h1>
-            {data.from && (
-              <span className="from-label from-label-block">mula kay {data.from}</span>
-            )}
-          </div>
-        )}
-
-        {/* STAGE 0: sealed envelope — wax seal ON the flap (not below) */}
-        {stage === 0 && (
-          <div className="sealed-envelope-stage">
-            <div className="envelope-illustration">
-              <div className="envelope-body" aria-hidden>
-                <div className="envelope-flap" />
-              </div>
-              <button
-                type="button"
-                className="wax-seal-badge pulse-seal wax-seal-on-flap"
-                onClick={openEnvelope}
-                aria-label="Pindutin ang selyo para buksan ang padala"
-              >
-                <span className="seal-emblem">{stickerItem.icon}</span>
-              </button>
-            </div>
-            <span className="seal-hint-label">
-              Pindutin ang selyo para buksan ang padala 💌
-            </span>
-          </div>
-        )}
-
-        {/* STAGE 1–3: bouquet (shrinks when letter envelope appears to avoid scroll) */}
-        {stage >= 1 && stage < 4 && (
-          <div
-            className={`blooming-bouquet-display ${stage === 1 ? "bouquet-rising" : ""} ${stage >= 3 ? "bouquet-compact" : ""}`}
-          >
-            <BouquetSVG
-              data={{ f: data.f, w: data.w }}
-              animated={stage === 1 && !reduced.current}
-            />
-          </div>
-        )}
-
-        {/* STAGE 3: second envelope with seal (instead of plain "May sulat pa") */}
-        {stage >= 3 && stage < 4 && (
-          <div className={`letter-envelope-stage ${letterNudge ? "letter-nudge" : ""}`}>
-            <button
-              type="button"
-              className="letter-envelope-btn"
-              onClick={openLetter}
-              aria-label="Pindutin ang selyo para buksan ang sulat"
-            >
-              <div className="letter-env-illustration">
-                <div className="letter-env-body" aria-hidden>
-                  <div className="letter-env-flap" />
-                  <div className="letter-env-paper-peek" />
-                </div>
-                <span className="wax-seal-badge pulse-seal wax-seal-on-letter-flap">
-                  <span className="seal-emblem small-seal">{stickerItem.icon}</span>
-                </span>
-              </div>
-            </button>
-            <span className="seal-hint-label">
-              Pindutin ang selyo para buksan ang sulat 💌
-              {letterNudge && (
-                <span className="nudge-extra"> — Pindutin dito</span>
-              )}
-            </span>
-          </div>
-        )}
-
-        {/* STAGE 4+: envelope opens, letter rises out */}
-        {stage >= 4 && (
-          <div
-            className={`letter-open-scene ${stage === 4 ? "is-opening" : "is-open"} ${reduced.current ? "reduced-motion" : ""}`}
-          >
-            <div className="letter-env-open-shell" aria-hidden>
-              <div className="letter-env-open-body">
-                <div className="letter-env-open-flap" />
-              </div>
-            </div>
-            <div
-              className={`handwritten-letter-card letter-rising letter-theme-${data.c || "classic"}`}
-              data-theme={data.c || "classic"}
-              style={{
-                background: currentTheme.bg,
-                color: currentTheme.text,
-                borderColor: currentTheme.border,
-                borderWidth: 2,
-                borderStyle: "solid",
-                boxShadow:
-                  (data.c || "classic") === "midnight"
-                    ? "0 16px 40px rgba(0,0,0,0.55)"
-                    : "0 16px 36px rgba(0,0,0,0.22)",
-              }}
-              onClick={finishTyping}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") finishTyping();
-              }}
-              aria-label="Sulat. Pindutin para tapusin agad ang pagsulat."
-            >
-              <div className="letter-stamp-corner" title={stickerItem.label}>
-                {stickerItem.icon}
-              </div>
-
-              {salutationText && (
-                <div className="letter-to-line" style={{ color: currentTheme.accent }}>
-                  {salutationText}
-                </div>
-              )}
-
-              {data.msg && (
-                <div className="letter-body-text">
-                  {typed}
-                  {stage === 4 && typed.length < (data.msg || "").length && (
-                    <span className="typing-cursor">|</span>
-                  )}
-                </div>
-              )}
-
-              {showSig && (closingText || data.from) && (
-                <div
-                  className="letter-signature-line letter-sig-fade"
-                  style={{ color: currentTheme.accent }}
-                >
-                  {closingText && (
-                    <>
-                      {closingText}
-                      <br />
-                    </>
-                  )}
-                  {data.from && <span>{data.from}</span>}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* STAGE 5: actions */}
-        {stage >= 5 && (
-          <div className="reveal-footer-actions">
-            <button type="button" className="action-pill-btn secondary" onClick={replay}>
-              <RotateCcw size={15} />
-              Ulitin
-            </button>
-            <button type="button" className="action-pill-btn secondary" onClick={thankShare}>
-              <Share2 size={15} />
-              Magpasalamat
-            </button>
-            <a
-              href="/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="action-pill-btn primary"
-            >
-              <Heart size={15} className="heart-icon-filled" />
-              Gumawa rin ng sarili mo
-            </a>
-          </div>
-        )}
-
-        {reportEmail && stage >= 0 && (
-          <div className="report-bouquet-link">
-            <a
-              href={`mailto:${reportEmail}?subject=${encodeURIComponent(
-                "I-report ang SendBloom bouquet"
-              )}&body=${encodeURIComponent(
-                typeof window !== "undefined" ? window.location.href : ""
-              )}`}
-            >
-              I-report ang bouquet na ito
-            </a>
-          </div>
-        )}
-      </div>
-    </div>
-  );
+.flower-tray-scroll {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--line);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
+
+.flower-tray-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.tray-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.tray-list {
+  display: flex;
+  gap: 6px;
+  flex-wrap: nowrap;
+}
+
+.tray-chip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 3px 8px 3px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.tray-chip-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+.tray-chip-del {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f5e4e8;
+  color: var(--rose-dark);
+  border: 0;
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 2px;
+}
+
+.tray-chip-del:active {
+  transform: scale(0.85);
+}
+
+/* ───────── Stepper Navigation Tabs ───────── */
+
+.builder-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin: 14px 0;
+  background: rgba(255, 255, 255, 0.7);
+  padding: 4px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+}
+
+.tab-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 8px 2px;
+  border-radius: 14px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.tab-btn.active {
+  background: #ffffff;
+  color: var(--rose-dark);
+  box-shadow: 0 2px 8px rgba(232, 80, 106, 0.15);
+  font-weight: 700;
+}
+
+/* ───────── Tab Panels ───────── */
+
+.tab-content-area {
+  margin-top: 10px;
+}
+
+.tab-pane {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  padding: 18px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.02);
+  animation: tab-fade-in 0.2s ease-out;
+}
+
+@keyframes tab-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.section-label {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+
+/* ───────── Occasion Presets ───────── */
+
+.presets-box {
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1.5px dashed var(--line);
+}
+
+.presets-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.preset-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff8f6;
+  border: 1.5px solid var(--line);
+  border-radius: 14px;
+  padding: 8px 10px;
+  min-height: 64px;
+  box-sizing: border-box;
+  cursor: pointer;
+  text-align: left;
+  margin: 1px;
+  transition: all 0.14s ease;
+}
+
+.preset-card:active {
+  transform: scale(0.97);
+  background: #ffeef2;
+  border-color: var(--rose);
+}
+
+.preset-card.selected-preset {
+  background: #fff0f3;
+  border-color: var(--rose);
+  box-shadow: 0 4px 14px rgba(232, 80, 106, 0.22);
+  transform: scale(1.02);
+}
+
+.preset-card.selected-preset .preset-name {
+  color: var(--rose-dark);
+}
+
+.preset-emoji {
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.preset-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.preset-name {
+  font-size: 12px;
+  color: var(--ink);
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.preset-desc {
+  font-size: 10px;
+  color: var(--muted);
+  line-height: 1.2;
+  margin-top: 2px;
+}
+
+/* ───────── Custom Flower Types & Swatches ───────── */
+
+.flower-type-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+}
+
+.flower-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 2px 5px;
+  background: #fff8f6;
+  border: 2px solid transparent;
+  border-radius: 16px;
+  cursor: pointer;
+  font-size: 11px;
+  color: var(--muted);
+  transition: all 0.12s ease;
+}
+
+.flower-chip.active {
+  border-color: var(--rose);
+  background: #ffffff;
+  color: var(--ink);
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(232, 80, 106, 0.15);
+}
+
+.chip-name {
+  font-size: 11px;
+}
+
+.swatches-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin: 10px 0 16px;
+}
+
+.color-swatch-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 3px solid #ffffff;
+  box-shadow: 0 0 0 1.5px var(--line);
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.color-swatch-btn.active {
+  box-shadow: 0 0 0 3px var(--rose);
+  transform: scale(1.1);
+}
+
+/* ───────── Buttons & Rows ───────── */
+
+.actions-row {
+  display: flex;
+  gap: 8px;
+}
+
+.primary-btn,
+.secondary-btn {
+  box-sizing: border-box;
+  flex: 1;
+  border-radius: 999px;
+  /* same height for all Builder action buttons */
+  height: 48px;
+  min-height: 48px;
+  max-height: 48px;
+  padding: 0 16px;
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: transform 0.12s ease, background 0.15s ease;
+  white-space: nowrap;
+}
+
+.primary-btn {
+  border: 1.5px solid transparent;
+  background: var(--rose);
+  color: #ffffff;
+  box-shadow: 0 6px 16px rgba(232, 80, 106, 0.3);
+}
+
+.primary-btn:active {
+  transform: scale(0.97);
+}
+
+.primary-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.secondary-btn {
+  border: 1.5px solid var(--line);
+  background: #fff8f6;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.secondary-btn:active {
+  transform: scale(0.97);
+}
+
+.secondary-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.secondary-btn.danger {
+  color: #b91c1c;
+  background: #fff5f5;
+  border-color: #fed7d7;
+}
+
+.step-next-btn {
+  width: 100%;
+  border: 0;
+  border-radius: 999px;
+  padding: 13px 18px;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  background: #3b1f2b;
+  color: #ffffff;
+  margin-top: 14px;
+  box-shadow: 0 4px 12px rgba(59, 31, 43, 0.2);
+}
+
+.step-next-btn:active {
+  transform: scale(0.98);
+}
+
+/* ───────── Wraps Selector ───────── */
+
+.wraps-selector-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.wrap-option-card {
+  border: 2px solid transparent;
+  background: #fff8f6;
+  border-radius: 16px;
+  padding: 10px 8px;
+  height: 108px;
+  box-sizing: border-box;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin: 1px;
+  transition: all 0.14s ease;
+}
+
+.wrap-option-card.active {
+  border-color: var(--rose);
+  background: #ffffff;
+  box-shadow: 0 4px 14px rgba(232, 80, 106, 0.18);
+  transform: translateY(-1px);
+}
+
+.wrap-preview-swatch {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+  flex-shrink: 0;
+}
+
+.wrap-ribbon-line {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.wrap-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.2;
+}
+
+.wrap-hint {
+  font-size: 10px;
+  color: var(--muted);
+  line-height: 1.1;
+}
+
+/* ───────── Letter & Stationery Themes ───────── */
+
+.themes-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.theme-card {
+  border: 2px solid transparent;
+  border-radius: 14px;
+  padding: 8px 4px;
+  height: 64px;
+  box-sizing: border-box;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  margin: 1px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.theme-card.active {
+  outline: 2.5px solid var(--rose);
+  transform: translateY(-2px);
+}
+
+.theme-dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+}
+
+.stickers-row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 4px 1px;
+}
+
+.sticker-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 8px 4px;
+  height: 62px;
+  box-sizing: border-box;
+  background: #fff8f6;
+  border: 1.5px solid var(--line);
+  border-radius: 14px;
+  cursor: pointer;
+  font-size: 11px;
+  margin: 1px;
+}
+
+.sticker-btn.active {
+  border-color: var(--rose);
+  background: #ffffff;
+  font-weight: 700;
+  color: var(--rose-dark);
+  box-shadow: 0 2px 6px rgba(232, 80, 106, 0.2);
+}
+
+.sticker-icon {
+  font-size: 20px;
+}
+
+.fields-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.input-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.field-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2px;
+}
+
+.field-required-tag {
+  font-size: 11px;
+  font-weight: 700;
+  color: #e11d48;
+  background: #ffe4e6;
+  padding: 2px 8px;
+  border-radius: 999px;
+  letter-spacing: 0.02em;
+}
+
+.field-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.text-input {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1.5px solid var(--line);
+  border-radius: 14px;
+  background: #fffdfc;
+  outline: none;
+  font-size: 16px;
+  transition: all 0.12s ease;
+}
+
+.text-input:focus {
+  border-color: var(--rose);
+  box-shadow: 0 0 0 3px rgba(232, 80, 106, 0.15);
+}
+
+.input-field-error {
+  border-color: #e11d48 !important;
+  background: #fff1f2 !important;
+  box-shadow: 0 0 0 3px rgba(225, 29, 72, 0.18) !important;
+}
+
+.field-error-hint {
+  font-size: 12px;
+  font-weight: 600;
+  color: #e11d48;
+  margin-top: 4px;
+  display: block;
+}
+
+.song-dropdown-container {
+  width: 100%;
+}
+
+.song-dropdown-select {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1.5px solid var(--line);
+  border-radius: 14px;
+  background: #fffdfc;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+  outline: none;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.song-dropdown-select:focus {
+  border-color: var(--rose);
+  box-shadow: 0 0 0 3px rgba(232, 80, 106, 0.15);
+}
+
+.textarea-input {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1.5px solid var(--line);
+  border-radius: 14px;
+  background: #fffdfc;
+  outline: none;
+  font-size: 16px;
+  font-family: var(--hand);
+  resize: none;
+  line-height: 1.5;
+}
+
+.textarea-input:focus {
+  border-color: var(--rose);
+  box-shadow: 0 0 0 3px rgba(232, 80, 106, 0.15);
+}
+
+.char-count {
+  font-size: 11px;
+  color: var(--muted);
+  text-align: right;
+  margin-top: 2px;
+}
+
+.field-error-text {
+  font-size: 12px;
+  color: #e53e3e;
+  margin-top: 2px;
+}
+
+.field-success-text {
+  font-size: 12px;
+  color: #2e7d32;
+  margin-top: 2px;
+}
+
+/* ───────── Share & Send Tab ───────── */
+
+.ready-generate-card {
+  text-align: center;
+  padding: 24px 12px;
+}
+
+.ready-icon {
+  font-size: 52px;
+  margin-bottom: 8px;
+}
+
+.ready-generate-card h3 {
+  margin: 0 0 6px;
+  font-family: var(--serif);
+  font-size: 22px;
+  color: var(--rose-dark);
+}
+
+.ready-generate-card p {
+  margin: 0 0 20px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.big-send-btn {
+  padding: 16px 28px;
+  font-size: 17px;
+  margin: 0 auto;
+  max-width: 320px;
+}
+
+.share-results-card {
+  text-align: center;
+}
+
+.share-badge {
+  display: inline-block;
+  background: #d1fae5;
+  color: #065f46;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 999px;
+  margin-bottom: 8px;
+}
+
+.share-title {
+  margin: 0 0 4px;
+  font-family: var(--serif);
+  font-size: 22px;
+  color: var(--rose-dark);
+}
+
+.share-desc {
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.link-copy-container {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.generated-link-input {
+  flex: 1;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1.5px solid var(--line);
+  background: #f9f9f9;
+  font-size: 13px;
+  color: var(--ink);
+  outline: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.copy-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--ink);
+  color: #ffffff;
+  border: 0;
+  border-radius: 14px;
+  padding: 0 18px;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.12s ease;
+}
+
+.copy-btn.copied {
+  background: #059669;
+}
+
+.share-buttons-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.messenger-btn,
+.native-share-btn,
+.preview-btn {
+  box-sizing: border-box;
+  width: 100%;
+  height: 48px;
+  min-height: 48px;
+  max-height: 48px;
+  border-radius: 999px;
+  padding: 0 16px;
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-decoration: none;
+}
+
+.messenger-btn {
+  border: 1.5px solid transparent;
+  background: linear-gradient(135deg, #0084ff, #a033ff);
+  color: #ffffff;
+  box-shadow: 0 6px 16px rgba(0, 132, 255, 0.3);
+}
+
+.messenger-btn:active {
+  transform: scale(0.98);
+}
+
+.native-share-btn {
+  border: 1.5px solid var(--line);
+  background: #ffffff;
+  color: var(--ink);
+}
+
+.preview-btn {
+  border: 1.5px solid transparent;
+  background: #fff0f3;
+  color: var(--rose-dark);
+}
+}
+
+/* ───────── Floating Toast ───────── */
+
+.floating-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  background: var(--ink);
+  color: #ffffff;
+  padding: 10px 20px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 600;
+  z-index: 100;
+  max-width: calc(100vw - 32px);
+  text-align: center;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  animation: toast-slide-up 0.22s ease-out;
+}
+
+@keyframes toast-slide-up {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 12px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+.builder-footer {
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+  margin-top: 28px;
+  padding-bottom: 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.footer-brand {
+  font-weight: 600;
+  color: var(--ink);
+  font-size: 13px;
+  margin: 0;
+}
+
+.coffee-footer-btn {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  transition: all 0.15s ease;
+}
+
+.coffee-footer-btn:hover,
+.coffee-footer-btn:active {
+  background: #fff8f6;
+  border-color: var(--rose);
+  color: var(--ink);
+  transform: translateY(-1px);
+}
+
+/* ───────── Song Dropdown & Required Error States ───────── */
+
+.song-dropdown-container {
+  position: relative;
+  width: 100%;
+}
+
+.song-dropdown-select {
+  width: 100%;
+  padding: 11px 36px 11px 14px;
+  background: #ffffff;
+  border: 1.5px solid var(--line);
+  border-radius: 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2214%22%20height%3D%2214%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%238c7079%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.song-dropdown-select:focus {
+  outline: none;
+  border-color: var(--rose);
+  box-shadow: 0 0 0 3px rgba(232, 80, 106, 0.15);
+}
+
+.input-field-error {
+  border-color: #e11d48 !important;
+  background: #fff5f5 !important;
+  box-shadow: 0 0 0 3px rgba(225, 29, 72, 0.15) !important;
+}
+
+.field-error-hint {
+  font-size: 11px;
+  font-weight: 700;
+  color: #e11d48;
+  margin-top: 3px;
+  display: block;
+}
+
+/* ───────── Buy Us a Coffee GCash Modal ───────── */
+
+.coffee-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 10, 15, 0.65);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.coffee-modal-card {
+  position: relative;
+  background: #ffffff;
+  border-radius: 24px;
+  padding: 24px 20px 20px;
+  max-width: 360px;
+  width: 100%;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
+  text-align: center;
+  animation: modalScaleUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modalScaleUp {
+  from {
+    transform: scale(0.92);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.coffee-modal-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 0;
+  background: #f1f5f9;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.coffee-modal-header {
+  margin-bottom: 16px;
+}
+
+.coffee-icon-badge {
+  font-size: 36px;
+  margin-bottom: 6px;
+}
+
+.coffee-modal-title {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--ink);
+  margin: 0 0 6px;
+}
+
+.coffee-modal-desc {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0;
+}
+
+.gcash-card {
+  background: linear-gradient(145deg, #007dfe, #0056b3);
+  border-radius: 18px;
+  padding: 16px;
+  color: #ffffff;
+  box-shadow: 0 8px 20px rgba(0, 125, 254, 0.3);
+  margin-bottom: 14px;
+}
+
+.gcash-top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  font-weight: 800;
+  font-size: 14px;
+}
+
+.gcash-scan-tag {
+  font-size: 10px;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.2);
+  padding: 2px 8px;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.gcash-qr-container {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.gcash-qr-svg {
+  display: block;
+}
+
+.gcash-info-box {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 10px;
+}
+
+.gcash-account-name {
+  font-size: 13px;
+  font-weight: 700;
+  opacity: 0.95;
+}
+
+.gcash-account-number {
+  font-size: 17px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  font-family: monospace;
+}
+
+.gcash-copy-btn {
+  width: 100%;
+  border: 0;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #007dfe;
+  font-weight: 700;
+  font-size: 13px;
+  padding: 9px 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  transition: transform 0.1s ease;
+}
+
+.gcash-copy-btn:active {
+  transform: scale(0.97);
+}
+
+.coffee-modal-done-btn {
+  width: 100%;
+  border: 1.5px solid var(--line);
+  background: #f8fafc;
+  color: var(--ink);
+  font-weight: 700;
+  font-size: 13px;
+  padding: 10px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+/* ───────── REVEAL PAGE & 3D INTERACTIVE ENVELOPE ───────── */
+
+.reveal-page-wrapper {
+  position: relative;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px calc(36px + env(safe-area-inset-bottom, 16px));
+  color: #ffffff;
+  text-align: center;
+  background: radial-gradient(ellipse at 50% 28%, #7a2f68 0%, #3d1545 55%, var(--plum) 100%);
+}
+
+.reveal-ambient-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 40%, rgba(255, 176, 196, 0.35), transparent 60%);
+  animation: glow-pulse 3.5s ease-in-out infinite alternate;
+}
+
+@keyframes glow-pulse {
+  from {
+    opacity: 0.55;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.reveal-top-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 40;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  pointer-events: none;
+}
+
+.preview-indicator-badge {
+  pointer-events: auto;
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 12px;
+  border-radius: 999px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.preview-return-link {
+  color: var(--rose-dark);
+  text-decoration: underline;
+}
+
+.controls-right-group {
+  margin-left: auto;
+  pointer-events: auto;
+}
+
+.sound-control-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  color: #ffffff;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.sound-control-pill:active {
+  transform: scale(0.94);
+}
+
+/* ───────── Unopened Envelope Box ───────── */
+
+.envelope-hero-box {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 420px;
+}
+
+.envelope-recipient-badge {
+  margin-bottom: 20px;
+}
+
+.for-label {
+  font-size: 14px;
+  letter-spacing: 0.05em;
+  opacity: 0.85;
+}
+
+.for-name {
+  font-family: var(--serif);
+  font-size: clamp(34px, 9vw, 48px);
+  font-weight: 800;
+  margin: 4px 0 2px;
+  line-height: 1.1;
+  text-shadow: 0 4px 20px rgba(255, 143, 163, 0.5);
+  word-break: break-word;
+}
+
+.from-label {
+  font-size: 14px;
+  opacity: 0.8;
+}
+
+/* 3D Envelope Component */
+
+.interactive-envelope-3d {
+  position: relative;
+  width: min(86vw, 340px);
+  height: 220px;
+  background: #e5b98f;
+  border-radius: 12px;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+  perspective: 800px;
+  margin: 10px 0 20px;
+  transition: transform 0.2s ease;
+}
+
+.interactive-envelope-3d:active {
+  transform: scale(0.98);
+}
+
+.envelope-back-pocket {
+  position: absolute;
+  inset: 0;
+  background: #cca074;
+  border-radius: 12px;
+}
+
+.envelope-bouq-peek {
+  position: absolute;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%) scale(0.65);
+  width: 220px;
+  height: 280px;
+  pointer-events: none;
+  opacity: 0.9;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.25));
+}
+
+.envelope-front-pocket {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, #eecaa6 0%, #dbb084 100%);
+  clip-path: polygon(0 0, 50% 50%, 100% 0, 100% 100%, 0 100%);
+  border-radius: 0 0 12px 12px;
+  z-index: 2;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.envelope-top-flap {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 120px;
+  background: #dfb288;
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+  transform-origin: top center;
+  z-index: 3;
+  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.interactive-envelope-3d.flap-open .envelope-top-flap {
+  transform: rotateX(180deg);
+  z-index: 1;
+}
+
+.wax-seal-button-wrap {
+  position: absolute;
+  top: 96px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  transition: opacity 0.3s ease;
+}
+
+.interactive-envelope-3d.flap-open .wax-seal-button-wrap {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.wax-seal-badge {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #e8506a 0%, #b82d49 65%, #7a152d 100%);
+  border: 3px solid #ffccd5;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4), inset 0 2px 4px rgba(255, 255, 255, 0.4);
+}
+
+.seal-emblem {
+  font-size: 26px;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+}
+
+.pulse-seal {
+  animation: seal-pulse 2s ease-in-out infinite;
+}
+
+@keyframes seal-pulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 6px 20px rgba(232, 80, 106, 0.5);
+  }
+  50% {
+    transform: scale(1.08);
+    box-shadow: 0 8px 28px rgba(232, 80, 106, 0.85);
+  }
+}
+
+.wax-seal-hero-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.seal-hint-label {
+  font-size: 13px;
+  opacity: 0.85;
+  color: #fff;
+  letter-spacing: 0.02em;
+}
+
+.subtle-now-playing-badge {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.music-mute-toggle-btn {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+
+.tap-instruction-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.open-action-btn {
+  border: 0;
+  background: linear-gradient(135deg, #ff8fa3, #e8506a);
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 18px;
+  padding: 15px 36px;
+  border-radius: 999px;
+  cursor: pointer;
+  box-shadow: 0 8px 28px rgba(232, 80, 106, 0.55);
+  transition: transform 0.12s ease;
+}
+
+.open-action-btn:active {
+  transform: scale(0.96);
+}
+
+.pulse-button {
+  animation: btn-glow 2s infinite alternate;
+}
+
+@keyframes btn-glow {
+  from {
+    box-shadow: 0 8px 24px rgba(232, 80, 106, 0.4);
+  }
+  to {
+    box-shadow: 0 10px 36px rgba(232, 80, 106, 0.85);
+  }
+}
+
+.tap-hint-text {
+  font-size: 13px;
+  opacity: 0.75;
+}
+
+/* ───────── Revealed Content Stage ───────── */
+
+.revealed-content-stage {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 440px;
+}
+
+.reveal-flash-effect {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 45%, #ffffff 0%, rgba(255, 220, 230, 0.95) 40%, transparent 75%);
+  animation: flash-burst 0.7s ease-out forwards;
+}
+
+@keyframes flash-burst {
+  0% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.6);
+  }
+}
+
+.recipient-greeting-header {
+  margin-bottom: 6px;
+}
+
+.greeting-sub {
+  font-size: 14px;
+  opacity: 0.8;
+  letter-spacing: 0.04em;
+}
+
+.greeting-title {
+  font-family: var(--serif);
+  font-size: clamp(30px, 8vw, 42px);
+  margin: 2px 0 0;
+  font-weight: 800;
+  text-shadow: 0 4px 20px rgba(255, 143, 163, 0.5);
+}
+
+.blooming-bouquet-display {
+  width: min(88vw, 340px);
+  filter: drop-shadow(0 16px 36px rgba(0, 0, 0, 0.35));
+}
+
+.blooming-bouquet-display svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* ───────── Music Player Component ───────── */
+
+.song-widget-wrapper {
+  width: min(92vw, 380px);
+  margin-top: 14px;
+}
+
+.music-player-card {
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 18px;
+  padding: 10px 14px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+}
+
+.music-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.vinyl {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #111111;
+  border: 2px solid #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ff8fa3;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  flex-shrink: 0;
+}
+
+.vinyl.spinning {
+  animation: spin 3s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.music-info {
+  flex: 1;
+  text-align: left;
+  overflow: hidden;
+}
+
+.music-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.8;
+}
+
+.music-title {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  color: #ffffff;
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.music-toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #ffffff;
+  color: var(--rose-dark);
+  border: 0;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.music-embed-container {
+  margin-top: 10px;
+  border-radius: 14px;
+  overflow: hidden;
+  animation: tab-fade-in 0.2s ease-out;
+}
+
+/* ───────── Handwritten Letter Card ───────── */
+
+.handwritten-letter-card {
+  position: relative;
+  width: min(92vw, 380px);
+  margin-top: 16px;
+  border-radius: 18px;
+  /* border/background set by theme class + inline style from Builder choice */
+  border: 2px solid #f0d9d9;
+  padding: 22px 20px 18px;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.3);
+  text-align: left;
+  transform: rotate(-1deg);
+  animation: letter-enter 0.6s cubic-bezier(0.2, 0.9, 0.3, 1.1) both;
+}
+
+@keyframes letter-enter {
+  from {
+    transform: translateY(35px) rotate(3deg);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) rotate(-1deg);
+    opacity: 1;
+  }
+}
+
+.letter-stamp-corner {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  font-size: 26px;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15));
+}
+
+.letter-to-line {
+  font-family: var(--hand);
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.letter-body-text {
+  font-family: var(--hand);
+  font-size: 18px;
+  line-height: 28px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  min-height: 48px;
+}
+
+.typing-cursor {
+  display: inline-block;
+  font-weight: 700;
+  animation: blink 0.8s infinite;
+  color: var(--rose);
+}
+
+@keyframes blink {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+.letter-signature-line {
+  margin-top: 14px;
+  text-align: right;
+  font-family: var(--hand);
+  font-size: 16px;
+}
+
+.letter-signature-line span {
+  font-weight: 700;
+  font-size: 18px;
+}
+
+/* ───────── Heart Reaction Shower ───────── */
+
+.reaction-card-box {
+  margin-top: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.heart-reaction-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: #ffffff;
+  color: var(--rose-dark);
+  border: 0;
+  border-radius: 999px;
+  padding: 12px 24px;
+  font-weight: 800;
+  font-size: 15px;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(232, 80, 106, 0.4);
+  transition: transform 0.12s ease;
+}
+
+.heart-reaction-btn:active {
+  transform: scale(0.92);
+}
+
+.reaction-hint {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.floating-heart-burst {
+  position: fixed;
+  z-index: 60;
+  pointer-events: none;
+  font-size: 28px;
+  animation: float-heart 1.6s ease-out forwards;
+}
+
+@keyframes float-heart {
+  0% {
+    transform: translate(-50%, 0) scale(0.8) rotate(0deg);
+    opacity: 1;
+  }
+  50% {
+    transform: translate(-50%, -60px) scale(1.3) rotate(15deg);
+    opacity: 0.9;
+  }
+  100% {
+    transform: translate(-50%, -140px) scale(1.6) rotate(-20deg);
+    opacity: 0;
+  }
+}
+
+/* ───────── Reveal Footer Actions (equal-size pills) ───────── */
+
+.reveal-footer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  align-items: stretch;
+  margin-top: 16px;
+  width: 100%;
+  max-width: 360px;
+  padding: 0 8px;
+  box-sizing: border-box;
+}
+
+.action-pill-btn {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  /* fixed height so primary/secondary match */
+  height: 44px;
+  min-height: 44px;
+  max-height: 44px;
+  padding: 0 16px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 0.12s ease, background 0.15s ease;
+  /* same border box for both variants */
+  border: 1.5px solid transparent;
+  white-space: nowrap;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.action-pill-btn:active {
+  transform: scale(0.96);
+}
+
+.action-pill-btn.primary {
+  background: linear-gradient(135deg, #ff8fa3, #e8506a);
+  color: #ffffff;
+  border-color: transparent;
+  box-shadow: 0 4px 14px rgba(232, 80, 106, 0.35);
+}
+
+.action-pill-btn.secondary {
+  background: rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(6px);
+  border-color: rgba(255, 255, 255, 0.4);
+  color: #ffffff;
+}
+
+/* On narrow screens: stack full-width so all same width + height */
+@media (max-width: 380px) {
+  .reveal-footer-actions {
+    flex-direction: column;
+  }
+
+  .action-pill-btn {
+    width: 100%;
+    flex: 0 0 auto;
+  }
+}
+
+/* ───────── Canvas & Falling Petals ───────── */
+
+.reveal-confetti-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 25;
+  pointer-events: none;
+}
+
+.petal {
+  position: absolute;
+  top: -40px;
+  z-index: 15;
+  pointer-events: none;
+  border-radius: 150% 0 150% 0;
+  opacity: 0.9;
+  animation: petal-fall linear infinite;
+}
+
+@keyframes petal-fall {
+  0% {
+    transform: translate3d(0, -10vh, 0) rotate(0deg);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: translate3d(var(--drift, 40px), 112vh, 0) rotate(540deg);
+    opacity: 0.7;
+  }
+}
+
+/* ───────── Bouquet SVG Bloom Keyframes ───────── */
+
+.bl-leaf {
+  animation: leaf 0.6s cubic-bezier(0.2, 0.9, 0.3, 1.1) both;
+}
+
+.bl-stem {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: grow 0.75s ease-out forwards;
+}
+
+.bl-wrap {
+  animation: rise 0.7s cubic-bezier(0.2, 0.9, 0.3, 1) 0.15s both;
+}
+
+.bl-head {
+  animation: bloom 0.95s cubic-bezier(0.2, 0.9, 0.3, 1.25) both;
+}
+
+@keyframes leaf {
+  from {
+    transform: scale(0);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+@keyframes grow {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes rise {
+  from {
+    transform: translateY(70px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes bloom {
+  0% {
+    transform: scale(0) rotate(-50deg);
+    opacity: 0;
+  }
+  55% {
+    transform: scale(1.2) rotate(8deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) rotate(0);
+    opacity: 1;
+  }
+}
+
+/* ───────── Natural Organic Sway Keyframes ───────── */
+
+.flower-sway {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  animation: natural-sway 4.2s ease-in-out infinite alternate;
+}
+
+.flower-sway-0 {
+  animation-duration: 3.8s;
+  animation-delay: 0s;
+}
+
+.flower-sway-1 {
+  animation-duration: 4.6s;
+  animation-delay: -1.4s;
+}
+
+.flower-sway-2 {
+  animation-duration: 3.4s;
+  animation-delay: -2.2s;
+}
+
+.flower-sway-3 {
+  animation-duration: 4.1s;
+  animation-delay: -0.7s;
+}
+
+.leaf-sway {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  animation: leaf-sway 5s ease-in-out infinite alternate;
+}
+
+.leaf-sway-0 {
+  animation-duration: 4.8s;
+  animation-delay: -1.2s;
+}
+
+.leaf-sway-1 {
+  animation-duration: 5.4s;
+  animation-delay: -2.8s;
+}
+
+@keyframes natural-sway {
+  0% {
+    transform: rotate(0deg);
+  }
+  33% {
+    transform: rotate(2.4deg) translateY(-0.8px);
+  }
+  66% {
+    transform: rotate(-1.8deg) translateY(0.4px);
+  }
+  100% {
+    transform: rotate(2deg) translateY(-0.4px);
+  }
+}
+
+@keyframes leaf-sway {
+  0% {
+    transform: rotate(0deg) scale(1);
+  }
+  50% {
+    transform: rotate(-3deg) scale(1.02);
+  }
+  100% {
+    transform: rotate(2.5deg) scale(0.99);
+  }
+}
+
+/* ───────── Reduced Motion ───────── */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+  }
+  .petal {
+    display: none;
+  }
+}
+
+/* ───────── Two-step reveal flow ───────── */
+
+.sealed-envelope-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  margin-top: 24px;
+}
+
+.envelope-illustration {
+  width: 180px;
+  height: 120px;
+  position: relative;
+}
+
+.envelope-body {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(160deg, #f7e6d4 0%, #e8c9a8 100%);
+  border-radius: 4px 4px 10px 10px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+  position: relative;
+  overflow: hidden;
+}
+
+.envelope-flap {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 55%;
+  background: linear-gradient(180deg, #d4a574 0%, #c48a5a 100%);
+  clip-path: polygon(0 0, 50% 70%, 100% 0);
+  transform-origin: top center;
+}
+
+/* Wax seal centered ON the envelope flap (not below) */
+.wax-seal-on-flap {
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  transform: translate(-50%, -50%);
+  z-index: 3;
+  width: 56px;
+  height: 56px;
+  min-width: 48px;
+  min-height: 48px;
+}
+
+.wax-seal-on-flap.pulse-seal {
+  animation: seal-on-flap-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes seal-on-flap-pulse {
+  0%,
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.06);
+    box-shadow: 0 8px 24px rgba(232, 80, 106, 0.55);
+  }
+}
+
+.mute-only-badge {
+  padding: 8px 12px;
+}
+
+.mute-only-badge .music-mute-toggle-btn {
+  min-width: 40px;
+  min-height: 40px;
+  justify-content: center;
+}
+
+/* Letter paper follows Builder stationery theme */
+.handwritten-letter-card.letter-theme-classic {
+  background: #fffaf3 !important;
+  color: #4a2c36 !important;
+  border-color: #f0d9d9 !important;
+}
+
+.handwritten-letter-card.letter-theme-parchment {
+  background: #f7efe1 !important;
+  color: #422817 !important;
+  border-color: #decbaf !important;
+  background-image: linear-gradient(
+    135deg,
+    rgba(66, 40, 23, 0.03) 25%,
+    transparent 25%,
+    transparent 50%,
+    rgba(66, 40, 23, 0.03) 50%,
+    transparent 75%,
+    transparent
+  ) !important;
+  background-size: 12px 12px !important;
+}
+
+.handwritten-letter-card.letter-theme-romantic {
+  background: #fff0f3 !important;
+  color: #521b2d !important;
+  border-color: #ffccd5 !important;
+}
+
+.handwritten-letter-card.letter-theme-midnight {
+  background: #1f1d36 !important;
+  color: #e9d5ff !important;
+  border-color: #3f3b6c !important;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55) !important;
+}
+
+.handwritten-letter-card.letter-theme-midnight .typing-cursor {
+  color: #ffd166;
+}
+
+.bouquet-rising {
+  animation: bouquet-rise-in 1.1s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+}
+
+@keyframes bouquet-rise-in {
+  from {
+    transform: translateY(80px) scale(0.85);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+/* Compact bouquet when letter envelope is shown — less vertical space */
+.blooming-bouquet-display.bouquet-compact {
+  width: min(52vw, 160px);
+  margin-bottom: 4px;
+  filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.28));
+  transition: width 0.45s ease, margin 0.45s ease;
+}
+
+/* Second envelope (letter) — sealed */
+.letter-envelope-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.letter-envelope-btn {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.letter-env-illustration {
+  width: 150px;
+  height: 100px;
+  position: relative;
+}
+
+.letter-env-body {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(160deg, #f0dcc4 0%, #e0c09a 100%);
+  border-radius: 4px 4px 10px 10px;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.28);
+  position: relative;
+  overflow: hidden;
+}
+
+.letter-env-flap {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 55%;
+  background: linear-gradient(180deg, #c9a06e 0%, #b88955 100%);
+  clip-path: polygon(0 0, 50% 72%, 100% 0);
+  z-index: 1;
+}
+
+.letter-env-paper-peek {
+  position: absolute;
+  left: 18%;
+  right: 18%;
+  top: 28%;
+  height: 48%;
+  background: linear-gradient(180deg, #fffaf3, #f5e6d3);
+  border-radius: 2px 2px 0 0;
+  box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.08);
+  z-index: 0;
+}
+
+.wax-seal-on-letter-flap {
+  position: absolute;
+  left: 50%;
+  top: 40%;
+  transform: translate(-50%, -50%);
+  z-index: 3;
+  width: 48px;
+  height: 48px;
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #e8506a 0%, #b82d49 65%, #7a152d 100%);
+  border: 3px solid #ffccd5;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+
+.wax-seal-on-letter-flap.pulse-seal {
+  animation: seal-on-letter-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes seal-on-letter-pulse {
+  0%,
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.07);
+  }
+}
+
+.letter-nudge .wax-seal-on-letter-flap {
+  animation: seal-on-letter-pulse 1s ease-in-out infinite,
+    letter-bounce-seal 0.55s ease-in-out infinite alternate;
+}
+
+@keyframes letter-bounce-seal {
+  from {
+    transform: translate(-50%, -50%) translateY(0);
+  }
+  to {
+    transform: translate(-50%, -50%) translateY(-5px);
+  }
+}
+
+.seal-emblem.small-seal {
+  font-size: 20px;
+}
+
+.nudge-extra {
+  font-weight: 700;
+}
+
+/* Envelope opens + letter rises out */
+.letter-open-scene {
+  position: relative;
+  width: min(92vw, 360px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.letter-env-open-shell {
+  width: 150px;
+  height: 56px;
+  position: relative;
+  z-index: 1;
+  margin-bottom: -8px;
+}
+
+.letter-env-open-body {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(160deg, #e8c9a8 0%, #d4a574 100%);
+  border-radius: 0 0 10px 10px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+  position: relative;
+  overflow: visible;
+}
+
+.letter-env-open-flap {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 70px;
+  background: linear-gradient(180deg, #c9a06e 0%, #b88955 100%);
+  clip-path: polygon(0 100%, 50% 15%, 100% 100%);
+  transform-origin: top center;
+  transform: rotateX(0deg);
+  z-index: 2;
+}
+
+.letter-open-scene.is-opening .letter-env-open-flap {
+  animation: env-flap-open 0.55s ease forwards;
+}
+
+.letter-open-scene.is-open .letter-env-open-flap {
+  transform: rotateX(-160deg);
+  opacity: 0.85;
+}
+
+@keyframes env-flap-open {
+  from {
+    transform: rotateX(0deg);
+  }
+  to {
+    transform: rotateX(-160deg);
+  }
+}
+
+.handwritten-letter-card.letter-rising {
+  position: relative;
+  z-index: 3;
+  margin-top: 0;
+  max-height: min(48dvh, 320px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  width: min(92vw, 360px);
+}
+
+.letter-open-scene.is-opening .handwritten-letter-card.letter-rising {
+  animation: letter-rise-from-env 0.85s cubic-bezier(0.2, 0.85, 0.3, 1) both;
+  animation-delay: 0.2s;
+}
+
+.letter-open-scene.reduced-motion .handwritten-letter-card.letter-rising,
+.letter-open-scene.reduced-motion .letter-env-open-flap {
+  animation: none !important;
+}
+
+@keyframes letter-rise-from-env {
+  from {
+    transform: translateY(40px) scale(0.92);
+    opacity: 0;
+    clip-path: inset(70% 0 0 0);
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+/* Tighter layout when letter is on screen — less need to scroll the page */
+.reveal-page-wrapper.reveal-stage-3,
+.reveal-page-wrapper.reveal-stage-4,
+.reveal-page-wrapper.reveal-stage-5 {
+  justify-content: flex-start;
+  padding-top: 12px;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom, 12px));
+}
+
+.reveal-page-wrapper.reveal-stage-4 .revealed-content-stage,
+.reveal-page-wrapper.reveal-stage-5 .revealed-content-stage {
+  gap: 8px;
+}
+
+.reveal-page-wrapper.reveal-stage-4 .reveal-footer-actions,
+.reveal-page-wrapper.reveal-stage-5 .reveal-footer-actions {
+  margin-top: 12px;
+}
+
+.reveal-page-wrapper.reveal-stage-4 .report-bouquet-link,
+.reveal-page-wrapper.reveal-stage-5 .report-bouquet-link {
+  margin-top: 12px;
+}
+
+.letter-unfolding {
+  animation: letter-enter 0.55s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+}
+
+.letter-sig-fade {
+  animation: sig-fade-in 0.7s ease both;
+}
+
+@keyframes sig-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.from-label-block {
+  display: block;
+  margin-top: 4px;
+  opacity: 0.8;
+}
+
+.music-mute-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.music-spin-icon {
+  animation: spin 2.5s linear infinite;
+}
+
+.heart-icon-filled {
+  color: #ff6b8a;
+  fill: #ff6b8a;
+}
+
+/* (action-pill-btn + reveal-footer-actions defined once above) */
+
+.report-bouquet-link {
+  margin-top: 28px;
+  text-align: center;
+  font-size: 12px;
+  opacity: 0.55;
+}
+
+.report-bouquet-link a {
+  color: inherit;
+  text-decoration: underline;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Wax seal minimum tap target */
+.wax-seal-badge {
+  min-width: 48px;
+  min-height: 48px;
+}
+
+/* Utility replacements for missing Tailwind-style classes */
+.u-mt-1 { margin-top: 4px; }
+.u-mt-2 { margin-top: 8px; }
+.u-mt-3 { margin-top: 12px; }
+.u-mt-4 { margin-top: 16px; }
+.u-mt-6 { margin-top: 24px; }
+.u-block { display: block; }
+.u-inline { display: inline; }
+.u-inline-flex { display: inline-flex; }
+.u-items-center { align-items: center; }
+.u-gap-1 { gap: 4px; }
+.u-gap-1-5 { gap: 6px; }
+.u-opacity-80 { opacity: 0.8; }
+.u-rounded-xl { border-radius: 12px; }
+.u-text-pink { color: #ec4899; }
+.u-fill-pink { fill: #ec4899; }
+.u-mr-1 { margin-right: 4px; }
+.u-ml-1 { margin-left: 4px; }
+.u-flex { display: flex; }
+
+.song-try-result {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.song-try-result img {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.song-try-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.song-try-title {
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.song-try-artist {
+  font-size: 12px;
+  opacity: 0.75;
+}
+
+.song-try-fail {
+  margin-top: 8px;
+  font-size: 13px;
+  color: #b45309;
+}
+
+.suggestion-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.suggestion-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: #fff;
+  font-size: 12px;
+  cursor: pointer;
+  max-width: 100%;
+}
+
+.suggestion-chip:hover {
+  border-color: #e8506a;
+  color: #c43553;
+}
+
+.writing-prompts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.writing-prompt {
+  font-size: 11px;
+  opacity: 0.7;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.04);
+  border: 0;
+  cursor: pointer;
+}
+
+.sal-clo-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.sal-clo-chip {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: #fff;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.sal-clo-chip.active {
+  border-color: #e8506a;
+  background: #fff0f3;
+  color: #c43553;
+  font-weight: 600;
+}
+
+.field-sub-hint {
+  display: block;
+  font-size: 12px;
+  opacity: 0.7;
+  margin-top: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bouquet-rising,
+  .letter-unfolding,
+  .letter-sig-fade,
+  .pulse-seal,
+  .letter-nudge .letter-seal-btn {
+    animation: none !important;
+  }
+}
+
+/* Aliases for leftover utility-looking class names used in JSX */
+.mt-1 { margin-top: 4px; }
+.mt-2 { margin-top: 8px; }
+.mt-3 { margin-top: 12px; }
+.mt-4 { margin-top: 16px; }
+.mt-6 { margin-top: 24px; }
+.inline { display: inline; }
+.inline-flex { display: inline-flex; }
+.items-center { align-items: center; }
+.gap-1 { gap: 4px; }
+.gap-1\.5, .gap-1-5 { gap: 6px; }
+.block { display: block; }
+.opacity-80 { opacity: 0.8; }
+.rounded-xl { border-radius: 12px; }
+.text-pink-500 { color: #ec4899; }
+.fill-pink-500 { fill: #ec4899; }
+.mr-1 { margin-right: 4px; }
+.mr-1\.5, .mr-1-5 { margin-right: 6px; }
+.mr-2 { margin-right: 8px; }
+.ml-1 { margin-left: 4px; }
+.animate-spin { animation: spin 1s linear infinite; }
+.text-rose-500 { color: #f43f5e; }
+.text-amber-600 { color: #d97706; }
+.flex { display: flex; }
