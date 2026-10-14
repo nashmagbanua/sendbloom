@@ -441,7 +441,7 @@ export default function Reveal({
   const reportEmail = process.env.NEXT_PUBLIC_REPORT_EMAIL || "";
 
   return (
-    <div className="reveal-page-wrapper">
+    <div className={`reveal-page-wrapper reveal-stage-${stage}`}>
       <audio ref={audioRef} preload="auto" style={{ display: "none" }} />
 
       <div className="sr-only" aria-live="polite" aria-atomic="true">
@@ -484,7 +484,7 @@ export default function Reveal({
         </div>
       )}
 
-      <div className="revealed-content-stage">
+      <div className={`revealed-content-stage stage-${stage}`}>
         {flash && <div className="reveal-flash-effect" aria-hidden />}
 
         {/* Header only while sealed; hides after opening, returns on "Ulitin" (stage 0) */}
@@ -520,10 +520,10 @@ export default function Reveal({
           </div>
         )}
 
-        {/* STAGE 1+: bouquet blooms */}
-        {stage >= 1 && (
+        {/* STAGE 1–3: bouquet (shrinks when letter envelope appears to avoid scroll) */}
+        {stage >= 1 && stage < 4 && (
           <div
-            className={`blooming-bouquet-display ${stage === 1 ? "bouquet-rising" : ""}`}
+            className={`blooming-bouquet-display ${stage === 1 ? "bouquet-rising" : ""} ${stage >= 3 ? "bouquet-compact" : ""}`}
           >
             <BouquetSVG
               data={{ f: data.f, w: data.w }}
@@ -532,19 +532,27 @@ export default function Reveal({
           </div>
         )}
 
-        {/* STAGE 3+: second seal for letter */}
+        {/* STAGE 3: second envelope with seal (instead of plain "May sulat pa") */}
         {stage >= 3 && stage < 4 && (
-          <div className={`letter-seal-stage ${letterNudge ? "letter-nudge" : ""}`}>
+          <div className={`letter-envelope-stage ${letterNudge ? "letter-nudge" : ""}`}>
             <button
               type="button"
-              className="letter-seal-btn pulse-seal"
+              className="letter-envelope-btn"
               onClick={openLetter}
-              aria-label="Pindutin para basahin ang sulat"
+              aria-label="Pindutin ang selyo para buksan ang sulat"
             >
-              <span className="seal-emblem small-seal">{stickerItem.icon}</span>
+              <div className="letter-env-illustration">
+                <div className="letter-env-body" aria-hidden>
+                  <div className="letter-env-flap" />
+                  <div className="letter-env-paper-peek" />
+                </div>
+                <span className="wax-seal-badge pulse-seal wax-seal-on-letter-flap">
+                  <span className="seal-emblem small-seal">{stickerItem.icon}</span>
+                </span>
+              </div>
             </button>
             <span className="seal-hint-label">
-              May sulat pa para sa&apos;yo 💌
+              Pindutin ang selyo para buksan ang sulat 💌
               {letterNudge && (
                 <span className="nudge-extra"> — Pindutin dito</span>
               )}
@@ -552,63 +560,72 @@ export default function Reveal({
           </div>
         )}
 
-        {/* STAGE 4+: letter */}
+        {/* STAGE 4+: envelope opens, letter rises out */}
         {stage >= 4 && (
           <div
-            className={`handwritten-letter-card letter-theme-${data.c || "classic"} ${stage === 4 ? "letter-unfolding" : ""}`}
-            data-theme={data.c || "classic"}
-            style={{
-              background: currentTheme.bg,
-              color: currentTheme.text,
-              borderColor: currentTheme.border,
-              borderWidth: 2,
-              borderStyle: "solid",
-              boxShadow:
-                (data.c || "classic") === "midnight"
-                  ? "0 16px 40px rgba(0,0,0,0.55)"
-                  : "0 16px 36px rgba(0,0,0,0.22)",
-            }}
-            onClick={finishTyping}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") finishTyping();
-            }}
-            aria-label="Sulat. Pindutin para tapusin agad ang pagsulat."
+            className={`letter-open-scene ${stage === 4 ? "is-opening" : "is-open"} ${reduced.current ? "reduced-motion" : ""}`}
           >
-            <div className="letter-stamp-corner" title={stickerItem.label}>
-              {stickerItem.icon}
+            <div className="letter-env-open-shell" aria-hidden>
+              <div className="letter-env-open-body">
+                <div className="letter-env-open-flap" />
+              </div>
             </div>
-
-            {salutationText && (
-              <div className="letter-to-line" style={{ color: currentTheme.accent }}>
-                {salutationText}
+            <div
+              className={`handwritten-letter-card letter-rising letter-theme-${data.c || "classic"}`}
+              data-theme={data.c || "classic"}
+              style={{
+                background: currentTheme.bg,
+                color: currentTheme.text,
+                borderColor: currentTheme.border,
+                borderWidth: 2,
+                borderStyle: "solid",
+                boxShadow:
+                  (data.c || "classic") === "midnight"
+                    ? "0 16px 40px rgba(0,0,0,0.55)"
+                    : "0 16px 36px rgba(0,0,0,0.22)",
+              }}
+              onClick={finishTyping}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") finishTyping();
+              }}
+              aria-label="Sulat. Pindutin para tapusin agad ang pagsulat."
+            >
+              <div className="letter-stamp-corner" title={stickerItem.label}>
+                {stickerItem.icon}
               </div>
-            )}
 
-            {data.msg && (
-              <div className="letter-body-text">
-                {typed}
-                {stage === 4 && typed.length < (data.msg || "").length && (
-                  <span className="typing-cursor">|</span>
-                )}
-              </div>
-            )}
+              {salutationText && (
+                <div className="letter-to-line" style={{ color: currentTheme.accent }}>
+                  {salutationText}
+                </div>
+              )}
 
-            {showSig && (closingText || data.from) && (
-              <div
-                className="letter-signature-line letter-sig-fade"
-                style={{ color: currentTheme.accent }}
-              >
-                {closingText && (
-                  <>
-                    {closingText}
-                    <br />
-                  </>
-                )}
-                {data.from && <span>{data.from}</span>}
-              </div>
-            )}
+              {data.msg && (
+                <div className="letter-body-text">
+                  {typed}
+                  {stage === 4 && typed.length < (data.msg || "").length && (
+                    <span className="typing-cursor">|</span>
+                  )}
+                </div>
+              )}
+
+              {showSig && (closingText || data.from) && (
+                <div
+                  className="letter-signature-line letter-sig-fade"
+                  style={{ color: currentTheme.accent }}
+                >
+                  {closingText && (
+                    <>
+                      {closingText}
+                      <br />
+                    </>
+                  )}
+                  {data.from && <span>{data.from}</span>}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
