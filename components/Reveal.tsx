@@ -17,10 +17,9 @@ import {
   playMelodicBackground,
   playRustle,
   playSealBreak,
-  setSoundMuted,
   stopMelodicBackground,
 } from "@/lib/audio";
-import { Heart, Volume2, VolumeX, RotateCcw, Share2 } from "lucide-react";
+import { Heart, RotateCcw, Share2 } from "lucide-react";
 
 type PetalSpec = {
   left: number;
@@ -85,7 +84,6 @@ export default function Reveal({
   const [runId, setRunId] = useState(0);
   const [petals, setPetals] = useState<PetalSpec[]>([]);
   const [isPlayingMusic, setIsPlayingMusic] = useState(false);
-  const [isAudioMuted, setIsAudioMuted] = useState(false);
   const [playingLabel, setPlayingLabel] = useState("");
   const [usingSynth, setUsingSynth] = useState(false);
   const [liveMsg, setLiveMsg] = useState("");
@@ -122,7 +120,6 @@ export default function Reveal({
     lowEnd.current = isLowEnd();
     const petalCount = reduced.current ? 0 : lowEnd.current ? 10 : 22;
     setPetals(makePetals(data, petalCount));
-    setIsAudioMuted(getSoundMuted());
 
     const title = data.st || "";
     const artist = data.sa || "";
@@ -391,20 +388,6 @@ export default function Reveal({
     setLiveMsg("Natapos ang sulat.");
   };
 
-  const toggleMute = () => {
-    const next = !isAudioMuted;
-    setIsAudioMuted(next);
-    setSoundMuted(next);
-    if (audioRef.current) {
-      audioRef.current.muted = next;
-    }
-    if (next) {
-      stopMelodicBackground();
-    } else if (usingSynth && isPlayingMusic) {
-      playMelodicBackground();
-    }
-  };
-
   const replay = () => {
     clearTimers();
     cancelAnimationFrame(rafRef.current);
@@ -504,14 +487,16 @@ export default function Reveal({
       <div className="revealed-content-stage">
         {flash && <div className="reveal-flash-effect" aria-hidden />}
 
-        {/* Header always visible */}
-        <div className="recipient-greeting-header">
-          <span className="greeting-sub">May padala para kay</span>
-          <h1 className="greeting-title">{data.to ? data.to : "sa Iyo"}</h1>
-          {data.from && (
-            <span className="from-label from-label-block">mula kay {data.from}</span>
-          )}
-        </div>
+        {/* Header only while sealed; hides after opening, returns on "Ulitin" (stage 0) */}
+        {stage === 0 && (
+          <div className="recipient-greeting-header">
+            <span className="greeting-sub">May padala para kay</span>
+            <h1 className="greeting-title">{data.to ? data.to : "sa Iyo"}</h1>
+            {data.from && (
+              <span className="from-label from-label-block">mula kay {data.from}</span>
+            )}
+          </div>
+        )}
 
         {/* STAGE 0: sealed envelope — wax seal ON the flap (not below) */}
         {stage === 0 && (
@@ -544,21 +529,6 @@ export default function Reveal({
               data={{ f: data.f, w: data.w }}
               animated={stage === 1 && !reduced.current}
             />
-          </div>
-        )}
-
-        {/* Mute only — kanta tumutugtog pa rin, walang label ng pamagat */}
-        {stage >= 1 && isPlayingMusic && (
-          <div className="subtle-now-playing-badge mute-only-badge">
-            <button
-              type="button"
-              onClick={toggleMute}
-              className="music-mute-toggle-btn"
-              title={isAudioMuted ? "I-unmute" : "I-mute"}
-              aria-label={isAudioMuted ? "I-unmute ang tunog" : "I-mute ang tunog"}
-            >
-              {isAudioMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
-            </button>
           </div>
         )}
 
