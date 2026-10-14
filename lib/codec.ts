@@ -2,14 +2,17 @@ import {
   Bouquet,
   CardTheme,
   CARD_THEMES,
+  ClosingId,
+  CLOSINGS,
   Flower,
   FlowerType,
   FLOWER_META,
   FLOWER_ORDER,
   MAX_FLOWERS,
-  MAX_LINK,
   MAX_MSG,
   MAX_NAME,
+  SalutationId,
+  SALUTATIONS,
   StickerId,
   STICKER_META,
   WrapId,
@@ -38,9 +41,10 @@ function clean(v: unknown, max: number): string {
   return v.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "").trim().slice(0, max);
 }
 
+/** Legacy safe-link helper kept for decoding old payloads that still carry `s`. */
 export function safeLink(v: unknown): string | undefined {
   if (typeof v !== "string" || !v) return undefined;
-  const s = v.trim().slice(0, MAX_LINK);
+  const s = v.trim().slice(0, 300);
   try {
     const u = new URL(s);
     return u.protocol === "https:" ? u.toString() : undefined;
@@ -53,6 +57,9 @@ const CODE_TO_TYPE: Record<string, FlowerType> = Object.fromEntries(
   FLOWER_ORDER.map((t) => [FLOWER_META[t].code, t])
 ) as Record<string, FlowerType>;
 
+const VALID_SAL = new Set(Object.keys(SALUTATIONS));
+const VALID_CLO = new Set(Object.keys(CLOSINGS));
+
 export function encodeBouquet(b: Bouquet): string {
   const payload: Record<string, unknown> = {
     t: clean(b.to, MAX_NAME),
@@ -60,12 +67,15 @@ export function encodeBouquet(b: Bouquet): string {
     m: clean(b.msg, MAX_MSG),
     w: b.w,
     f: b.f.slice(0, MAX_FLOWERS).map((x) => FLOWER_META[x.t].code + x.c),
-    s: safeLink(b.s),
   };
   if (b.st?.trim()) payload.st = clean(b.st, 60);
   if (b.sa?.trim()) payload.sa = clean(b.sa, 50);
   if (b.k && b.k in STICKER_META) payload.k = b.k;
   if (b.c && b.c in CARD_THEMES) payload.c = b.c;
+  // Only encode non-default salutation/closing so old links stay short and compatible
+  if (b.sal && b.sal !== "mahal" && VALID_SAL.has(b.sal)) payload.sal = b.sal;
+  if (b.clo && b.clo !== "nagmamahal" && VALID_CLO.has(b.clo)) payload.clo = b.clo;
+  // Legacy `s` link field is intentionally not encoded
 
   return b64urlEncode(JSON.stringify(payload));
 }
@@ -95,17 +105,30 @@ export function decodeBouquet(code: string): Bouquet | null {
     const st: string | undefined = typeof raw.st === "string" ? clean(raw.st, 60) : undefined;
     const sa: string | undefined = typeof raw.sa === "string" ? clean(raw.sa, 50) : undefined;
 
+    // Defaults match today's behavior for old links without sal/clo
+    const sal: SalutationId | undefined =
+      typeof raw.sal === "string" && VALID_SAL.has(raw.sal)
+        ? (raw.sal as SalutationId)
+        : undefined;
+    const clo: ClosingId | undefined =
+      typeof raw.clo === "string" && VALID_CLO.has(raw.clo)
+        ? (raw.clo as ClosingId)
+        : undefined;
+
     return {
       to: clean(raw.t, MAX_NAME),
       from: clean(raw.r, MAX_NAME),
       msg: clean(raw.m, MAX_MSG),
       w,
       f: flowers,
+      // Ignore legacy s safely when present
       s: safeLink(raw.s),
       st,
       sa,
       k,
       c,
+      sal,
+      clo,
     };
   } catch {
     return null;
