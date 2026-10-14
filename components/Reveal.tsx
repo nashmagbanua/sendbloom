@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import BouquetSVG from "./BouquetSVG";
 import {
@@ -69,6 +69,8 @@ function isLowEnd(): boolean {
   }
 }
 
+type Song = { audioUrl?: string; title?: string; artist?: string } | null;
+
 export default function Reveal({
   data,
   preview = false,
@@ -78,31 +80,32 @@ export default function Reveal({
 }) {
   const [stage, setStage] = useState<Stage>(0);
   const [flash, setFlash] = useState(false);
-  const [typed, setTyped] = useState("");
+  const [typedCount, setTypedCount] = useState(0);
   const [showSig, setShowSig] = useState(false);
   const [letterNudge, setLetterNudge] = useState(false);
   const [runId, setRunId] = useState(0);
   const [petals, setPetals] = useState<PetalSpec[]>([]);
-  const [isPlayingMusic, setIsPlayingMusic] = useState(false);
-  const [playingLabel, setPlayingLabel] = useState("");
-  const [usingSynth, setUsingSynth] = useState(false);
+  const [, setIsPlayingMusic] = useState(false);
+  const [, setPlayingLabel] = useState("");
+  const [, setUsingSynth] = useState(false);
   const [liveMsg, setLiveMsg] = useState("");
+  const [resolvedSong, setResolvedSong] = useState<Song>(null);
 
-  const [resolvedSong, setResolvedSong] = useState<{
-    audioUrl?: string;
-    title?: string;
-    artist?: string;
-  } | null>(null);
-
-  const songPromiseRef = useRef<Promise<typeof resolvedSong> | null>(null);
+  const songPromiseRef = useRef<Promise<Song> | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const cursorRef = useRef<HTMLSpanElement>(null);
   const rafRef = useRef(0);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const reduced = useRef(false);
   const lowEnd = useRef(false);
   const typingCancel = useRef(false);
   const fadeInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+  const onTimeRef = useRef<(() => void) | null>(null);
+
+  // Emoji-safe character list (so 💖 never gets cut in half while typing)
+  const chars = useMemo(() => Array.from(data.msg || ""), [data.msg]);
 
   const later = useCallback((fn: () => void, ms: number) => {
     const t = setTimeout(fn, ms);
@@ -148,17 +151,33 @@ export default function Reveal({
       songPromiseRef.current = p;
     }
 
+    const audioEl = audioRef.current;
     return () => {
       clearTimers();
       cancelAnimationFrame(rafRef.current);
       stopMelodicBackground();
       if (fadeInterval.current) clearInterval(fadeInterval.current);
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.src = "";
+      if (audioEl) {
+        if (onTimeRef.current) audioEl.removeEventListener("timeupdate", onTimeRef.current);
+        audioEl.pause();
+        audioEl.src = "";
       }
     };
   }, [data, clearTimers]);
+
+  // Keep the typing cursor visible inside the letter card (the full text space is
+  // reserved from the start, so the card never grows while typing).
+  useEffect(() => {
+    if (stage !== 4) return;
+    const card = cardRef.current;
+    const cur = cursorRef.current;
+    if (!card || !cur) return;
+    const bottom = cur.offsetTop + cur.offsetHeight;
+    const pad = 28;
+    if (bottom > card.scrollTop + card.clientHeight - pad) {
+      card.scrollTop = bottom - card.clientHeight + pad;
+    }
+  }, [typedCount, stage]);
 
   const burstConfetti = useCallback(() => {
     if (reduced.current) return;
@@ -173,7 +192,7 @@ export default function Reveal({
     if (!ctx) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    const count = lowEnd.current ? 60 : 160;
+    const count = lowEnd.current ? 50 : 110;
     const parts = Array.from({ length: count }, () => {
       const a = Math.random() * Math.PI * 2;
       const sp = 6 + Math.random() * 15;
@@ -192,15 +211,19 @@ export default function Reveal({
     });
 
     cancelAnimationFrame(rafRef.current);
-    const tick = () => {
+    let last = performance.now();
+    const tick = (now: number) => {
+      // delta-time so it looks the same on 60Hz, 90Hz and 120Hz phones
+      const dt = Math.min((now - last) / 16.667, 2.5);
+      last = now;
       ctx.clearRect(0, 0, W, H);
       let alive = 0;
       for (const p of parts) {
-        p.vy += 0.28;
-        p.vx *= 0.985;
-        p.x += p.vx;
-        p.y += p.vy;
-        p.rot += p.vr;
+        p.vy += 0.28 * dt;
+        p.vx *= Math.pow(0.985, dt);
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.rot += p.vr * dt;
         if (p.y < H + 30) {
           alive++;
           ctx.save();
@@ -229,7 +252,6 @@ export default function Reveal({
     const target = 0.45;
     if (fadeInterval.current) clearInterval(fadeInterval.current);
     fadeInterval.current = setInterval(() => {
-      if (!el) return;
       if (el.volume < target - 0.02) {
         el.volume = Math.min(target, el.volume + 0.04);
       } else {
@@ -241,7 +263,9 @@ export default function Reveal({
       }
     }, 80);
 
-    // Soft crossfade near the 30s preview end instead of hard loop
+    // Soft fade near the end of the preview instead of a hard loop.
+    // Stored in a ref so the old listener is really removed on replay.
+    if (onTimeRef.current) el.removeEventListener("timeupdate", onTimeRef.current);
     const onTime = () => {
       if (!el.duration || !isFinite(el.duration)) return;
       const remaining = el.duration - el.currentTime;
@@ -251,12 +275,12 @@ export default function Reveal({
         el.volume = Math.min(target, el.volume + 0.08);
       }
     };
-    el.removeEventListener("timeupdate", onTime);
+    onTimeRef.current = onTime;
     el.addEventListener("timeupdate", onTime);
   }, []);
 
   const startMusic = useCallback(
-    async (song: { audioUrl?: string; title?: string; artist?: string } | null) => {
+    async (song: Song) => {
       setIsPlayingMusic(true);
       const audioEl = audioRef.current;
       if (song?.audioUrl && audioEl) {
@@ -280,7 +304,7 @@ export default function Reveal({
     [data.st, fadeInAudio]
   );
 
-  const openEnvelope = async () => {
+  const openEnvelope = () => {
     if (stage !== 0) return;
 
     playSealBreak();
@@ -295,36 +319,50 @@ export default function Reveal({
     playBloomCelebration();
     if (!reduced.current) burstConfetti();
 
-    // Wait up to ~2s for pending song fetch, then play real song or synth
-    let song = resolvedSong;
-    if (!song && songPromiseRef.current) {
-      try {
-        song = await Promise.race([
-          songPromiseRef.current,
-          new Promise<null>((r) => setTimeout(() => r(null), 2000)),
-        ]);
-      } catch {
-        song = null;
-      }
-    }
-    await startMusic(song);
-
-    // Stage 2: breathe ~2.5s
+    // Stage timing is scheduled right away. It no longer waits for the song
+    // fetch, so the animation looks the same on slow and fast internet.
     later(() => {
       setStage(2);
       setLiveMsg("Nagbubukad ang mga bulaklak.");
     }, reduced.current ? 400 : 2500);
 
-    // Stage 3: second seal appears
+    // Give the bloom a full ~2.7s to be seen before the letter envelope shows
     later(() => {
       setStage(3);
       setLiveMsg("May sulat pa. Pindutin ang selyo.");
       later(() => setLetterNudge(true), 6000);
-    }, reduced.current ? 600 : 2800);
+    }, reduced.current ? 600 : 5200);
+
+    // Music: if the song is already resolved, call play() synchronously inside the
+    // tap (iOS / in-app browsers block play() after an await).
+    if (resolvedSong) {
+      void startMusic(resolvedSong);
+    } else {
+      void (async () => {
+        let song: Song = null;
+        if (songPromiseRef.current) {
+          try {
+            song = await Promise.race([
+              songPromiseRef.current,
+              new Promise<null>((r) => setTimeout(() => r(null), 2000)),
+            ]);
+          } catch {
+            song = null;
+          }
+        }
+        await startMusic(song);
+      })();
+    }
   };
 
+  const completeLetter = useCallback(() => {
+    setShowSig(true);
+    setStage(5);
+    setLiveMsg("Natapos ang sulat.");
+  }, []);
+
   const openLetter = () => {
-    if (stage < 3) return;
+    if (stage !== 3) return;
     setLetterNudge(false);
     playRustle();
     try {
@@ -334,58 +372,44 @@ export default function Reveal({
     setStage(4);
     setLiveMsg("Binubuksan ang sulat.");
     typingCancel.current = false;
+    setTypedCount(0);
 
-    const full = data.msg || "";
-    const salId = data.sal && data.sal in SALUTATIONS ? data.sal : "mahal";
-    // salutation is shown separately; body types out
-
-    if (!full || reduced.current) {
-      setTyped(full);
-      later(() => {
-        setShowSig(true);
-        setStage(5);
-        setLiveMsg("Natapos ang sulat.");
-      }, 400);
+    if (chars.length === 0 || reduced.current) {
+      setTypedCount(chars.length);
+      later(completeLetter, 400);
       return;
     }
 
+    // Keep the typing speed such that the whole letter takes about 5-6 seconds max
+    const base = Math.max(8, Math.min(28, 5000 / chars.length));
+    const scale = base / 28;
     let i = 0;
     const step = () => {
-      if (typingCancel.current) {
-        setTyped(full);
-        setShowSig(true);
-        setStage(5);
-        return;
-      }
-      const nextChar = full[i];
+      if (typingCancel.current) return;
+      const ch = chars[i];
       i += 1;
-      setTyped(full.slice(0, i));
-      if (i >= full.length) {
-        later(() => {
-          setShowSig(true);
-          setStage(5);
-          setLiveMsg("Natapos ang sulat.");
-        }, 500);
+      setTypedCount(i);
+      if (i >= chars.length) {
+        later(completeLetter, 500);
         return;
       }
       const pause =
-        nextChar === "." || nextChar === "!" || nextChar === "?"
-          ? 180
-          : nextChar === ","
-            ? 90
-            : 28;
+        ch === "." || ch === "!" || ch === "?"
+          ? 180 * scale
+          : ch === ","
+            ? 90 * scale
+            : base;
       later(step, pause);
     };
-    later(step, 350);
+    // wait for the flap to open and the letter to rise out of the envelope
+    later(step, 1200);
   };
 
   const finishTyping = () => {
     if (stage !== 4) return;
     typingCancel.current = true;
-    setTyped(data.msg || "");
-    setShowSig(true);
-    setStage(5);
-    setLiveMsg("Natapos ang sulat.");
+    setTypedCount(chars.length);
+    completeLetter();
   };
 
   const replay = () => {
@@ -399,7 +423,7 @@ export default function Reveal({
     typingCancel.current = true;
     setStage(0);
     setFlash(false);
-    setTyped("");
+    setTypedCount(0);
     setShowSig(false);
     setLetterNudge(false);
     setIsPlayingMusic(false);
@@ -439,6 +463,7 @@ export default function Reveal({
   const closingText = CLOSINGS[cloId].text;
 
   const reportEmail = process.env.NEXT_PUBLIC_REPORT_EMAIL || "";
+  const letterOpen = stage >= 4;
 
   return (
     <div className={`reveal-page-wrapper reveal-stage-${stage}`}>
@@ -498,7 +523,7 @@ export default function Reveal({
           </div>
         )}
 
-        {/* STAGE 0: sealed envelope — wax seal ON the flap (not below) */}
+        {/* STAGE 0: sealed envelope */}
         {stage === 0 && (
           <div className="sealed-envelope-stage">
             <div className="envelope-illustration">
@@ -520,112 +545,120 @@ export default function Reveal({
           </div>
         )}
 
-        {/* STAGE 1–3: bouquet (shrinks when letter envelope appears to avoid scroll) */}
-        {stage >= 1 && stage < 4 && (
+        {/* STAGE 1+: bouquet. It stays on screen the whole time, including after the
+            letter opens (it just gets smaller to make room). */}
+        {stage >= 1 && (
           <div
-            className={`blooming-bouquet-display ${stage === 1 ? "bouquet-rising" : ""} ${stage >= 3 ? "bouquet-compact" : ""}`}
+            className={`blooming-bouquet-display ${stage === 1 ? "bouquet-rising" : ""} ${
+              stage >= 3 ? "bouquet-compact" : ""
+            } ${stage >= 4 ? "bouquet-tuck" : ""}`}
           >
-            <BouquetSVG
-              data={{ f: data.f, w: data.w }}
-              animated={stage === 1 && !reduced.current}
-            />
+            <BouquetSVG data={{ f: data.f, w: data.w }} animated={!reduced.current} />
           </div>
         )}
 
-        {/* STAGE 3: second envelope with seal (instead of plain "May sulat pa") */}
-        {stage >= 3 && stage < 4 && (
-          <div className={`letter-envelope-stage ${letterNudge ? "letter-nudge" : ""}`}>
-            <button
-              type="button"
-              className="letter-envelope-btn"
-              onClick={openLetter}
-              aria-label="Pindutin ang selyo para buksan ang sulat"
-            >
-              <div className="letter-env-illustration">
-                <div className="letter-env-body" aria-hidden>
-                  <div className="letter-env-flap" />
-                  <div className="letter-env-paper-peek" />
+        {/* STAGE 3+: ONE envelope that stays mounted. At stage 4 its flap opens and the
+            letter slides up out of it (same envelope, no swapping of elements). */}
+        {stage >= 3 && (
+          <div
+            className={`letter-scene ${letterOpen ? "is-open" : ""} ${
+              letterNudge && stage === 3 ? "letter-nudge" : ""
+            } ${reduced.current ? "reduced-motion" : ""}`}
+          >
+            {/* The letter lives in a slot that grows from 0 to full height */}
+            <div className="letter-slot">
+              <div className="letter-slot-inner">
+                <div className="letter-slot-pad">
+                  <div
+                    ref={cardRef}
+                    className={`handwritten-letter-card letter-theme-${data.c || "classic"}`}
+                    data-theme={data.c || "classic"}
+                    style={{
+                      background: currentTheme.bg,
+                      color: currentTheme.text,
+                      borderColor: currentTheme.border,
+                      borderWidth: 2,
+                      borderStyle: "solid",
+                      boxShadow:
+                        (data.c || "classic") === "midnight"
+                          ? "0 16px 40px rgba(0,0,0,0.55)"
+                          : "0 16px 36px rgba(0,0,0,0.22)",
+                    }}
+                    onClick={finishTyping}
+                    role="button"
+                    tabIndex={letterOpen ? 0 : -1}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") finishTyping();
+                    }}
+                    aria-label="Sulat. Pindutin para tapusin agad ang pagsulat."
+                  >
+                    <div className="letter-stamp-corner" title={stickerItem.label}>
+                      {stickerItem.icon}
+                    </div>
+
+                    {salutationText && (
+                      <div className="letter-to-line" style={{ color: currentTheme.accent }}>
+                        {salutationText}
+                      </div>
+                    )}
+
+                    {chars.length > 0 && (
+                      <div className="letter-body-text">
+                        {chars.slice(0, typedCount).join("")}
+                        {stage === 4 && typedCount < chars.length && (
+                          <span ref={cursorRef} className="typing-cursor">
+                            |
+                          </span>
+                        )}
+                        {/* invisible rest of the text: reserves the final height so the
+                            card does not grow (and jump) while typing */}
+                        <span className="letter-ghost" aria-hidden>
+                          {chars.slice(typedCount).join("")}
+                        </span>
+                      </div>
+                    )}
+
+                    {(closingText || data.from) && (
+                      <div
+                        className={`letter-signature-line ${
+                          showSig ? "letter-sig-fade" : "letter-sig-hidden"
+                        }`}
+                        style={{ color: currentTheme.accent }}
+                      >
+                        {closingText && (
+                          <>
+                            {closingText}
+                            <br />
+                          </>
+                        )}
+                        {data.from && <span>{data.from}</span>}
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <span className="wax-seal-badge pulse-seal wax-seal-on-letter-flap">
-                  <span className="seal-emblem small-seal">{stickerItem.icon}</span>
-                </span>
               </div>
-            </button>
-            <span className="seal-hint-label">
+            </div>
+
+            {/* The envelope: back, front pocket, flap, seal */}
+            <div className="lt-env" onClick={stage === 3 ? openLetter : undefined}>
+              <div className="lt-env-back" aria-hidden />
+              <div className="lt-env-front" aria-hidden />
+              <div className="lt-env-flap" aria-hidden />
+              <button
+                type="button"
+                className="wax-seal-badge pulse-seal lt-seal"
+                aria-label="Pindutin ang selyo para buksan ang sulat"
+                tabIndex={stage === 3 ? 0 : -1}
+                aria-hidden={stage !== 3}
+              >
+                <span className="seal-emblem small-seal">{stickerItem.icon}</span>
+              </button>
+            </div>
+
+            <span className="seal-hint-label lt-hint">
               Pindutin ang selyo para buksan ang sulat 💌
-              {letterNudge && (
-                <span className="nudge-extra"> — Pindutin dito</span>
-              )}
+              {letterNudge && <span className="nudge-extra"> — Pindutin dito</span>}
             </span>
-          </div>
-        )}
-
-        {/* STAGE 4+: envelope opens, letter rises out */}
-        {stage >= 4 && (
-          <div
-            className={`letter-open-scene ${stage === 4 ? "is-opening" : "is-open"} ${reduced.current ? "reduced-motion" : ""}`}
-          >
-            <div className="letter-env-open-shell" aria-hidden>
-              <div className="letter-env-open-body">
-                <div className="letter-env-open-flap" />
-              </div>
-            </div>
-            <div
-              className={`handwritten-letter-card letter-rising letter-theme-${data.c || "classic"}`}
-              data-theme={data.c || "classic"}
-              style={{
-                background: currentTheme.bg,
-                color: currentTheme.text,
-                borderColor: currentTheme.border,
-                borderWidth: 2,
-                borderStyle: "solid",
-                boxShadow:
-                  (data.c || "classic") === "midnight"
-                    ? "0 16px 40px rgba(0,0,0,0.55)"
-                    : "0 16px 36px rgba(0,0,0,0.22)",
-              }}
-              onClick={finishTyping}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") finishTyping();
-              }}
-              aria-label="Sulat. Pindutin para tapusin agad ang pagsulat."
-            >
-              <div className="letter-stamp-corner" title={stickerItem.label}>
-                {stickerItem.icon}
-              </div>
-
-              {salutationText && (
-                <div className="letter-to-line" style={{ color: currentTheme.accent }}>
-                  {salutationText}
-                </div>
-              )}
-
-              {data.msg && (
-                <div className="letter-body-text">
-                  {typed}
-                  {stage === 4 && typed.length < (data.msg || "").length && (
-                    <span className="typing-cursor">|</span>
-                  )}
-                </div>
-              )}
-
-              {showSig && (closingText || data.from) && (
-                <div
-                  className="letter-signature-line letter-sig-fade"
-                  style={{ color: currentTheme.accent }}
-                >
-                  {closingText && (
-                    <>
-                      {closingText}
-                      <br />
-                    </>
-                  )}
-                  {data.from && <span>{data.from}</span>}
-                </div>
-              )}
-            </div>
           </div>
         )}
 
@@ -647,12 +680,12 @@ export default function Reveal({
               className="action-pill-btn primary"
             >
               <Heart size={15} className="heart-icon-filled" />
-              Gumawa rin ng sarili mo
+              Gumawa rin ng digital bouquet
             </a>
           </div>
         )}
 
-        {reportEmail && stage >= 0 && (
+        {reportEmail && (
           <div className="report-bouquet-link">
             <a
               href={`mailto:${reportEmail}?subject=${encodeURIComponent(
