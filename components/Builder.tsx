@@ -410,7 +410,7 @@ export default function Builder() {
       <header className="builder-header">
         <div className="header-left">
           <h1 className="brand-title">SendBloom</h1>
-          <p className="brand-subtitle">Bulaklak na hindi nalalanta</p>
+          <p className="brand-subtitle">Send a little bloom. Share a little love. 🌸</p>
         </div>
         <button
           type="button"
