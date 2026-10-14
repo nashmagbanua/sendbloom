@@ -1820,7 +1820,8 @@ textarea {
   width: min(92vw, 380px);
   margin-top: 16px;
   border-radius: 18px;
-  border: 1.5px solid #f0d9d9;
+  /* border/background set by theme class + inline style from Builder choice */
+  border: 2px solid #f0d9d9;
   padding: 22px 20px 18px;
   box-shadow: 0 16px 36px rgba(0, 0, 0, 0.3);
   text-align: left;
@@ -2182,13 +2183,13 @@ textarea {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
+  gap: 14px;
   margin-top: 24px;
 }
 
 .envelope-illustration {
-  width: 160px;
-  height: 110px;
+  width: 180px;
+  height: 120px;
   position: relative;
 }
 
@@ -2196,8 +2197,8 @@ textarea {
   width: 100%;
   height: 100%;
   background: linear-gradient(160deg, #f7e6d4 0%, #e8c9a8 100%);
-  border-radius: 4px 4px 8px 8px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  border-radius: 4px 4px 10px 10px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
   position: relative;
   overflow: hidden;
 }
@@ -2211,6 +2212,85 @@ textarea {
   background: linear-gradient(180deg, #d4a574 0%, #c48a5a 100%);
   clip-path: polygon(0 0, 50% 70%, 100% 0);
   transform-origin: top center;
+}
+
+/* Wax seal centered ON the envelope flap (not below) */
+.wax-seal-on-flap {
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  transform: translate(-50%, -50%);
+  z-index: 3;
+  width: 56px;
+  height: 56px;
+  min-width: 48px;
+  min-height: 48px;
+}
+
+.wax-seal-on-flap.pulse-seal {
+  animation: seal-on-flap-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes seal-on-flap-pulse {
+  0%,
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.06);
+    box-shadow: 0 8px 24px rgba(232, 80, 106, 0.55);
+  }
+}
+
+.mute-only-badge {
+  padding: 8px 12px;
+}
+
+.mute-only-badge .music-mute-toggle-btn {
+  min-width: 40px;
+  min-height: 40px;
+  justify-content: center;
+}
+
+/* Letter paper follows Builder stationery theme */
+.handwritten-letter-card.letter-theme-classic {
+  background: #fffaf3 !important;
+  color: #4a2c36 !important;
+  border-color: #f0d9d9 !important;
+}
+
+.handwritten-letter-card.letter-theme-parchment {
+  background: #f7efe1 !important;
+  color: #422817 !important;
+  border-color: #decbaf !important;
+  background-image: linear-gradient(
+    135deg,
+    rgba(66, 40, 23, 0.03) 25%,
+    transparent 25%,
+    transparent 50%,
+    rgba(66, 40, 23, 0.03) 50%,
+    transparent 75%,
+    transparent
+  ) !important;
+  background-size: 12px 12px !important;
+}
+
+.handwritten-letter-card.letter-theme-romantic {
+  background: #fff0f3 !important;
+  color: #521b2d !important;
+  border-color: #ffccd5 !important;
+}
+
+.handwritten-letter-card.letter-theme-midnight {
+  background: #1f1d36 !important;
+  color: #e9d5ff !important;
+  border-color: #3f3b6c !important;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55) !important;
+}
+
+.handwritten-letter-card.letter-theme-midnight .typing-cursor {
+  color: #ffd166;
 }
 
 .bouquet-rising {
