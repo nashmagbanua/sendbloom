@@ -6,22 +6,21 @@ import BouquetSVG from "./BouquetSVG";
 import {
   Bouquet,
   CARD_THEMES,
+  CLOSINGS,
   FLOWER_META,
+  SALUTATIONS,
   STICKER_META,
 } from "@/lib/constants";
 import {
+  getSoundMuted,
   playBloomCelebration,
   playMelodicBackground,
   playRustle,
   playSealBreak,
+  setSoundMuted,
   stopMelodicBackground,
 } from "@/lib/audio";
-import {
-  Heart,
-  Music,
-  Volume2,
-  VolumeX,
-} from "lucide-react";
+import { Heart, Music, Volume2, VolumeX, RotateCcw, Share2 } from "lucide-react";
 
 type PetalSpec = {
   left: number;
@@ -32,9 +31,11 @@ type PetalSpec = {
   drift: number;
 };
 
-function makePetals(data: Bouquet): PetalSpec[] {
+type Stage = 0 | 1 | 2 | 3 | 4 | 5;
+
+function makePetals(data: Bouquet, count: number): PetalSpec[] {
   const palette = data.f.map((fl) => FLOWER_META[fl.t].colors[fl.c] ?? "#ff8fa3");
-  return Array.from({ length: 22 }, (_, i) => ({
+  return Array.from({ length: count }, (_, i) => ({
     left: Math.random() * 100,
     size: 12 + Math.random() * 14,
     dur: 5 + Math.random() * 5,
@@ -56,6 +57,19 @@ const CONFETTI_COLORS = [
   "#4cc9f0",
 ];
 
+function isLowEnd(): boolean {
+  try {
+    return (
+      (typeof navigator !== "undefined" &&
+        typeof navigator.hardwareConcurrency === "number" &&
+        navigator.hardwareConcurrency <= 4) ||
+      false
+    );
+  } catch {
+    return false;
+  }
+}
+
 export default function Reveal({
   data,
   preview = false,
@@ -63,14 +77,18 @@ export default function Reveal({
   data: Bouquet;
   preview?: boolean;
 }) {
-  const [opened, setOpened] = useState(false);
+  const [stage, setStage] = useState<Stage>(0);
   const [flash, setFlash] = useState(false);
-  const [showNote, setShowNote] = useState(false);
   const [typed, setTyped] = useState("");
-  const [runId] = useState(0);
+  const [showSig, setShowSig] = useState(false);
+  const [letterNudge, setLetterNudge] = useState(false);
+  const [runId, setRunId] = useState(0);
   const [petals, setPetals] = useState<PetalSpec[]>([]);
   const [isPlayingMusic, setIsPlayingMusic] = useState(false);
   const [isAudioMuted, setIsAudioMuted] = useState(false);
+  const [playingLabel, setPlayingLabel] = useState("");
+  const [usingSynth, setUsingSynth] = useState(false);
+  const [liveMsg, setLiveMsg] = useState("");
 
   const [resolvedSong, setResolvedSong] = useState<{
     audioUrl?: string;
@@ -78,51 +96,75 @@ export default function Reveal({
     artist?: string;
   } | null>(null);
 
+  const songPromiseRef = useRef<Promise<typeof resolvedSong> | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const rafRef = useRef(0);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const reduced = useRef(false);
-
-  useEffect(() => {
-    reduced.current = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    setPetals(makePetals(data));
-
-    // Pre-resolve song audio stream immediately on mount
-    const title = data.st || "";
-    const artist = data.sa || "";
-
-    if (title || artist) {
-      fetch(`/api/song?title=${encodeURIComponent(title)}&artist=${encodeURIComponent(artist)}`)
-        .then((r) => r.json())
-        .then((res) => {
-          if (res.found && res.audioUrl) {
-            setResolvedSong({
-              audioUrl: res.audioUrl,
-              title: res.title || title,
-              artist: res.artist || artist,
-            });
-            if (audioRef.current) {
-              audioRef.current.src = res.audioUrl;
-            }
-          }
-        })
-        .catch(() => {});
-    }
-
-    return () => {
-      timers.current.forEach(clearTimeout);
-      cancelAnimationFrame(rafRef.current);
-      stopMelodicBackground();
-    };
-  }, [data]);
+  const lowEnd = useRef(false);
+  const typingCancel = useRef(false);
+  const fadeInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const later = useCallback((fn: () => void, ms: number) => {
     const t = setTimeout(fn, ms);
     timers.current.push(t);
+    return t;
   }, []);
 
+  const clearTimers = useCallback(() => {
+    timers.current.forEach(clearTimeout);
+    timers.current = [];
+  }, []);
+
+  useEffect(() => {
+    reduced.current = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    lowEnd.current = isLowEnd();
+    const petalCount = reduced.current ? 0 : lowEnd.current ? 10 : 22;
+    setPetals(makePetals(data, petalCount));
+    setIsAudioMuted(getSoundMuted());
+
+    const title = data.st || "";
+    const artist = data.sa || "";
+
+    if (title || artist) {
+      const p = fetch(
+        `/api/song?title=${encodeURIComponent(title)}&artist=${encodeURIComponent(artist)}`
+      )
+        .then((r) => r.json())
+        .then((res) => {
+          if (res.found && res.audioUrl) {
+            const song = {
+              audioUrl: res.audioUrl as string,
+              title: (res.title || title) as string,
+              artist: (res.artist || artist) as string,
+            };
+            setResolvedSong(song);
+            if (audioRef.current) {
+              audioRef.current.src = song.audioUrl;
+            }
+            return song;
+          }
+          return null;
+        })
+        .catch(() => null);
+      songPromiseRef.current = p;
+    }
+
+    return () => {
+      clearTimers();
+      cancelAnimationFrame(rafRef.current);
+      stopMelodicBackground();
+      if (fadeInterval.current) clearInterval(fadeInterval.current);
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = "";
+      }
+    };
+  }, [data, clearTimers]);
+
   const burstConfetti = useCallback(() => {
+    if (reduced.current) return;
     const cv = canvasRef.current;
     if (!cv) return;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -134,7 +176,8 @@ export default function Reveal({
     if (!ctx) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    const parts = Array.from({ length: 190 }, () => {
+    const count = lowEnd.current ? 60 : 160;
+    const parts = Array.from({ length: count }, () => {
       const a = Math.random() * Math.PI * 2;
       const sp = 6 + Math.random() * 15;
       return {
@@ -183,86 +226,248 @@ export default function Reveal({
     rafRef.current = requestAnimationFrame(tick);
   }, []);
 
-  const openGift = () => {
-    if (opened) return;
+  const fadeInAudio = useCallback((el: HTMLAudioElement) => {
+    el.volume = 0;
+    el.loop = true;
+    const target = 0.45;
+    if (fadeInterval.current) clearInterval(fadeInterval.current);
+    fadeInterval.current = setInterval(() => {
+      if (!el) return;
+      if (el.volume < target - 0.02) {
+        el.volume = Math.min(target, el.volume + 0.04);
+      } else {
+        el.volume = target;
+        if (fadeInterval.current) {
+          clearInterval(fadeInterval.current);
+          fadeInterval.current = null;
+        }
+      }
+    }, 80);
 
-    // 1. Break wax seal & play snap sound
+    // Soft crossfade near the 30s preview end instead of hard loop
+    const onTime = () => {
+      if (!el.duration || !isFinite(el.duration)) return;
+      const remaining = el.duration - el.currentTime;
+      if (remaining < 1.2 && remaining > 0) {
+        el.volume = Math.max(0.05, target * (remaining / 1.2));
+      } else if (el.currentTime < 0.8 && el.volume < target) {
+        el.volume = Math.min(target, el.volume + 0.08);
+      }
+    };
+    el.removeEventListener("timeupdate", onTime);
+    el.addEventListener("timeupdate", onTime);
+  }, []);
+
+  const startMusic = useCallback(
+    async (song: { audioUrl?: string; title?: string; artist?: string } | null) => {
+      setIsPlayingMusic(true);
+      const audioEl = audioRef.current;
+      if (song?.audioUrl && audioEl) {
+        try {
+          if (audioEl.src !== song.audioUrl) audioEl.src = song.audioUrl;
+          audioEl.muted = getSoundMuted();
+          fadeInAudio(audioEl);
+          await audioEl.play();
+          setUsingSynth(false);
+          const label = [song.title, song.artist].filter(Boolean).join(" · ");
+          setPlayingLabel(label || data.st || "Kanta");
+          return;
+        } catch {
+          // fall through to synth
+        }
+      }
+      setUsingSynth(true);
+      setPlayingLabel("Himig ng Pag-ibig");
+      if (!getSoundMuted()) playMelodicBackground();
+    },
+    [data.st, fadeInAudio]
+  );
+
+  const openEnvelope = async () => {
+    if (stage !== 0) return;
+
     playSealBreak();
-    setTimeout(playRustle, 180);
     try {
       navigator.vibrate?.([30, 50, 40]);
     } catch {}
 
-    // 2. Play music immediately within user tap handler
-    setIsPlayingMusic(true);
-    const audioEl = audioRef.current;
-    if (audioEl && (audioEl.src || resolvedSong?.audioUrl)) {
-      if (!audioEl.src && resolvedSong?.audioUrl) {
-        audioEl.src = resolvedSong.audioUrl;
-      }
-      audioEl.play().catch(() => {
-        // Fallback to synthesized melody if external audio is blocked
-        playMelodicBackground();
-      });
-    } else {
-      // Play sweet synthesized acoustic chord melody
-      playMelodicBackground();
-    }
-
-    // 3. Trigger reveal animations & confetti
-    setOpened(true);
-    setFlash(true);
-    later(() => setFlash(false), 700);
+    setStage(1);
+    setLiveMsg("Binuksan ang envelope. Lumilitaw ang bouquet.");
+    setFlash(!reduced.current);
+    later(() => setFlash(false), reduced.current ? 200 : 700);
     playBloomCelebration();
+    if (!reduced.current) burstConfetti();
 
-    if (!reduced.current) {
-      burstConfetti();
+    // Wait up to ~2s for pending song fetch, then play real song or synth
+    let song = resolvedSong;
+    if (!song && songPromiseRef.current) {
+      try {
+        song = await Promise.race([
+          songPromiseRef.current,
+          new Promise<null>((r) => setTimeout(() => r(null), 2000)),
+        ]);
+      } catch {
+        song = null;
+      }
+    }
+    await startMusic(song);
+
+    // Stage 2: breathe ~2.5s
+    later(() => {
+      setStage(2);
+      setLiveMsg("Nagbubukad ang mga bulaklak.");
+    }, reduced.current ? 400 : 2500);
+
+    // Stage 3: second seal appears
+    later(() => {
+      setStage(3);
+      setLiveMsg("May sulat pa. Pindutin ang selyo.");
+      later(() => setLetterNudge(true), 6000);
+    }, reduced.current ? 600 : 2800);
+  };
+
+  const openLetter = () => {
+    if (stage < 3) return;
+    setLetterNudge(false);
+    playRustle();
+    try {
+      navigator.vibrate?.([20, 30]);
+    } catch {}
+
+    setStage(4);
+    setLiveMsg("Binubuksan ang sulat.");
+    typingCancel.current = false;
+
+    const full = data.msg || "";
+    const salId = data.sal && data.sal in SALUTATIONS ? data.sal : "mahal";
+    // salutation is shown separately; body types out
+
+    if (!full || reduced.current) {
+      setTyped(full);
+      later(() => {
+        setShowSig(true);
+        setStage(5);
+        setLiveMsg("Natapos ang sulat.");
+      }, 400);
+      return;
     }
 
-    // 4. Reveal handwritten letter with typing effect
-    later(() => {
-      setShowNote(true);
-      const full = data.msg || "";
-      if (!full || reduced.current) {
+    let i = 0;
+    const step = () => {
+      if (typingCancel.current) {
         setTyped(full);
+        setShowSig(true);
+        setStage(5);
         return;
       }
-      let i = 0;
-      const step = () => {
-        i += 2;
-        setTyped(full.slice(0, i));
-        if (i < full.length) later(step, 24);
-      };
-      step();
-    }, 700);
+      const nextChar = full[i];
+      i += 1;
+      setTyped(full.slice(0, i));
+      if (i >= full.length) {
+        later(() => {
+          setShowSig(true);
+          setStage(5);
+          setLiveMsg("Natapos ang sulat.");
+        }, 500);
+        return;
+      }
+      const pause =
+        nextChar === "." || nextChar === "!" || nextChar === "?"
+          ? 180
+          : nextChar === ","
+            ? 90
+            : 28;
+      later(step, pause);
+    };
+    later(step, 350);
+  };
+
+  const finishTyping = () => {
+    if (stage !== 4) return;
+    typingCancel.current = true;
+    setTyped(data.msg || "");
+    setShowSig(true);
+    setStage(5);
+    setLiveMsg("Natapos ang sulat.");
   };
 
   const toggleMute = () => {
-    const nextMuted = !isAudioMuted;
-    setIsAudioMuted(nextMuted);
+    const next = !isAudioMuted;
+    setIsAudioMuted(next);
+    setSoundMuted(next);
     if (audioRef.current) {
-      audioRef.current.muted = nextMuted;
+      audioRef.current.muted = next;
     }
-    if (nextMuted) {
+    if (next) {
       stopMelodicBackground();
+    } else if (usingSynth && isPlayingMusic) {
+      playMelodicBackground();
+    }
+  };
+
+  const replay = () => {
+    clearTimers();
+    cancelAnimationFrame(rafRef.current);
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+    stopMelodicBackground();
+    typingCancel.current = true;
+    setStage(0);
+    setFlash(false);
+    setTyped("");
+    setShowSig(false);
+    setLetterNudge(false);
+    setIsPlayingMusic(false);
+    setUsingSynth(false);
+    setPlayingLabel("");
+    setLiveMsg("Handa nang buksan muli.");
+    setRunId((n) => n + 1);
+    const petalCount = reduced.current ? 0 : lowEnd.current ? 10 : 22;
+    setPetals(makePetals(data, petalCount));
+  };
+
+  const thankShare = async () => {
+    const text = "Natanggap ko na ang bulaklak mo, salamat! 💐";
+    const url = typeof window !== "undefined" ? window.location.href : "";
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        await navigator.share({ title: "SendBloom", text, url });
+        return;
+      } catch (e: unknown) {
+        if (e && typeof e === "object" && "name" in e && (e as { name: string }).name === "AbortError")
+          return;
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(`${text}\n${url}`);
+      setLiveMsg("Nakopya ang mensahe ng pasasalamat.");
+    } catch {
+      setLiveMsg("Hindi makopya. I-share nang manual.");
     }
   };
 
   const currentTheme = CARD_THEMES[data.c || "classic"] || CARD_THEMES.classic;
   const stickerItem = STICKER_META[data.k || "heart"] || STICKER_META.heart;
+  const salId = data.sal && data.sal in SALUTATIONS ? data.sal : "mahal";
+  const cloId = data.clo && data.clo in CLOSINGS ? data.clo : "nagmamahal";
+  const salutationText = SALUTATIONS[salId].template(data.to || "");
+  const closingText = CLOSINGS[cloId].text;
+
+  const reportEmail = process.env.NEXT_PUBLIC_REPORT_EMAIL || "";
 
   return (
     <div className="reveal-page-wrapper">
-      {/* Hidden audio element for instant music playback upon wax seal tap */}
-      <audio
-        ref={audioRef}
-        preload="auto"
-        loop
-        style={{ display: "none" }}
-      />
+      <audio ref={audioRef} preload="auto" style={{ display: "none" }} />
 
-      {/* Floating Petals */}
-      {opened &&
+      <div className="sr-only" aria-live="polite" aria-atomic="true">
+        {liveMsg}
+      </div>
+
+      {/* Floating Petals — stages 1+ */}
+      {stage >= 1 &&
+        !reduced.current &&
         petals.map((p, i) => (
           <span
             key={`pet-${runId}-${i}`}
@@ -281,13 +486,10 @@ export default function Reveal({
           />
         ))}
 
-      {/* Confetti Canvas */}
-      <canvas ref={canvasRef} className="reveal-confetti-canvas" />
+      <canvas ref={canvasRef} className="reveal-confetti-canvas" aria-hidden />
 
-      {/* Subtle Glow Backdrop */}
-      <div className="reveal-ambient-glow" />
+      <div className="reveal-ambient-glow" aria-hidden />
 
-      {/* Preview indicator if preview mode */}
       {preview && (
         <div className="reveal-top-bar">
           <div className="preview-indicator-badge">
@@ -299,115 +501,177 @@ export default function Reveal({
         </div>
       )}
 
-      {/* MAIN PRESENTATION CONTAINER */}
       <div className="revealed-content-stage">
-        {flash && <div className="reveal-flash-effect" />}
+        {flash && <div className="reveal-flash-effect" aria-hidden />}
 
-        {/* Recipient Header */}
+        {/* Header always visible */}
         <div className="recipient-greeting-header">
-          <span className="greeting-sub">May espesyal na padala para kay</span>
-          <h1 className="greeting-title">{data.to ? data.to : "sa Iyo"} 💐</h1>
+          <span className="greeting-sub">May padala para kay</span>
+          <h1 className="greeting-title">{data.to ? data.to : "sa Iyo"}</h1>
           {data.from && (
-            <span className="from-label block mt-1 opacity-80">mula kay {data.from}</span>
+            <span className="from-label from-label-block">mula kay {data.from}</span>
           )}
         </div>
 
-        {/* Full Bouquet (Always prominently visible upon opening the link, never hidden!) */}
-        <div className="blooming-bouquet-display mt-2">
-          <BouquetSVG data={{ f: data.f, w: data.w }} animated={false} />
-        </div>
-
-        {/* WAX SEAL (Selyo) on envelope/card (Unopened state) */}
-        {!opened && (
-          <div className="wax-seal-hero-wrap mt-4">
+        {/* STAGE 0: sealed envelope only — NO bouquet */}
+        {stage === 0 && (
+          <div className="sealed-envelope-stage">
+            <div className="envelope-illustration" aria-hidden>
+              <div className="envelope-body">
+                <div className="envelope-flap" />
+              </div>
+            </div>
             <button
               type="button"
               className="wax-seal-badge pulse-seal"
-              onClick={openGift}
-              aria-label="Pindutin ang wax seal para basahin ang liham"
+              onClick={openEnvelope}
+              aria-label="Pindutin ang selyo para buksan ang padala"
             >
               <span className="seal-emblem">{stickerItem.icon}</span>
             </button>
-            <span className="seal-hint-label mt-2">
-              Pindutin ang Wax Seal para basahin ang liham 💌
+            <span className="seal-hint-label">
+              Pindutin ang selyo para buksan ang padala 💌
             </span>
           </div>
         )}
 
-        {/* Now Playing Music Indicator (Plays immediately upon tapping wax seal) */}
-        {opened && isPlayingMusic && (
-          <div className="subtle-now-playing-badge mt-3">
+        {/* STAGE 1+: bouquet blooms */}
+        {stage >= 1 && (
+          <div
+            className={`blooming-bouquet-display ${stage === 1 ? "bouquet-rising" : ""}`}
+          >
+            <BouquetSVG
+              data={{ f: data.f, w: data.w }}
+              animated={stage === 1 && !reduced.current}
+            />
+          </div>
+        )}
+
+        {/* Now playing */}
+        {stage >= 1 && isPlayingMusic && (
+          <div className="subtle-now-playing-badge">
             <button
               type="button"
               onClick={toggleMute}
-              className="music-mute-toggle-btn inline-flex items-center gap-1.5"
+              className="music-mute-toggle-btn"
               title={isAudioMuted ? "I-unmute" : "I-mute"}
+              aria-label={isAudioMuted ? "I-unmute ang tunog" : "I-mute ang tunog"}
             >
-              <Music size={14} className="inline animate-spin" />
+              <Music size={14} className={usingSynth ? undefined : "music-spin-icon"} />
               <span>
-                Tumutugtog: {resolvedSong?.title || data.st || "Himig ng Pag-ibig"}
-                {(resolvedSong?.artist || data.sa) ? ` · ${resolvedSong?.artist || data.sa}` : ""}
+                Tumutugtog: {playingLabel || "Himig ng Pag-ibig"}
               </span>
-              {isAudioMuted ? <VolumeX size={13} className="ml-1" /> : <Volume2 size={13} className="ml-1" />}
+              {isAudioMuted ? <VolumeX size={13} /> : <Volume2 size={13} />}
             </button>
           </div>
         )}
 
-        {/* Handwritten Letter (Revealed upon tapping wax seal) */}
-        {opened && showNote && (data.msg || data.from || data.to) && (
+        {/* STAGE 3+: second seal for letter */}
+        {stage >= 3 && stage < 4 && (
+          <div className={`letter-seal-stage ${letterNudge ? "letter-nudge" : ""}`}>
+            <button
+              type="button"
+              className="letter-seal-btn pulse-seal"
+              onClick={openLetter}
+              aria-label="Pindutin para basahin ang sulat"
+            >
+              <span className="seal-emblem small-seal">{stickerItem.icon}</span>
+            </button>
+            <span className="seal-hint-label">
+              May sulat pa para sa&apos;yo 💌
+              {letterNudge && (
+                <span className="nudge-extra"> — Pindutin dito</span>
+              )}
+            </span>
+          </div>
+        )}
+
+        {/* STAGE 4+: letter */}
+        {stage >= 4 && (
           <div
-            className="handwritten-letter-card"
+            className={`handwritten-letter-card ${stage === 4 ? "letter-unfolding" : ""}`}
             style={{
               background: currentTheme.bg,
               color: currentTheme.text,
               borderColor: currentTheme.border,
             }}
+            onClick={finishTyping}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") finishTyping();
+            }}
+            aria-label="Sulat. Pindutin para tapusin agad ang pagsulat."
           >
             <div className="letter-stamp-corner" title={stickerItem.label}>
               {stickerItem.icon}
             </div>
 
-            {data.to && (
-              <div
-                className="letter-to-line"
-                style={{ color: currentTheme.accent }}
-              >
-                Mahal kong {data.to},
+            {salutationText && (
+              <div className="letter-to-line" style={{ color: currentTheme.accent }}>
+                {salutationText}
               </div>
             )}
 
             {data.msg && (
               <div className="letter-body-text">
                 {typed}
-                {typed.length < (data.msg || "").length && (
+                {stage === 4 && typed.length < (data.msg || "").length && (
                   <span className="typing-cursor">|</span>
                 )}
               </div>
             )}
 
-            {data.from && (
+            {showSig && (closingText || data.from) && (
               <div
-                className="letter-signature-line"
+                className="letter-signature-line letter-sig-fade"
                 style={{ color: currentTheme.accent }}
               >
-                Nagmamahal,<br />
-                <span>{data.from}</span>
+                {closingText && (
+                  <>
+                    {closingText}
+                    <br />
+                  </>
+                )}
+                {data.from && <span>{data.from}</span>}
               </div>
             )}
           </div>
         )}
 
-        {/* Footer Actions: Opens new browser tab to make their own bouquet */}
-        {opened && (
+        {/* STAGE 5: actions */}
+        {stage >= 5 && (
           <div className="reveal-footer-actions">
+            <button type="button" className="action-pill-btn secondary" onClick={replay}>
+              <RotateCcw size={15} />
+              Ulitin
+            </button>
+            <button type="button" className="action-pill-btn secondary" onClick={thankShare}>
+              <Share2 size={15} />
+              Magpasalamat
+            </button>
             <a
               href="/"
               target="_blank"
               rel="noopener noreferrer"
               className="action-pill-btn primary"
             >
-              <Heart size={15} className="inline mr-1 text-pink-500 fill-pink-500" />
-              Gumawa rin ng Sariling Bouquet ➔
+              <Heart size={15} className="heart-icon-filled" />
+              Gumawa rin ng sarili mo
+            </a>
+          </div>
+        )}
+
+        {reportEmail && stage >= 0 && (
+          <div className="report-bouquet-link">
+            <a
+              href={`mailto:${reportEmail}?subject=${encodeURIComponent(
+                "I-report ang SendBloom bouquet"
+              )}&body=${encodeURIComponent(
+                typeof window !== "undefined" ? window.location.href : ""
+              )}`}
+            >
+              I-report ang bouquet na ito
             </a>
           </div>
         )}
