@@ -20,7 +20,7 @@ import {
   setSoundMuted,
   stopMelodicBackground,
 } from "@/lib/audio";
-import { Heart, Music, Volume2, VolumeX, RotateCcw, Share2 } from "lucide-react";
+import { Heart, Volume2, VolumeX, RotateCcw, Share2 } from "lucide-react";
 
 type PetalSpec = {
   left: number;
@@ -513,22 +513,22 @@ export default function Reveal({
           )}
         </div>
 
-        {/* STAGE 0: sealed envelope only — NO bouquet */}
+        {/* STAGE 0: sealed envelope — wax seal ON the flap (not below) */}
         {stage === 0 && (
           <div className="sealed-envelope-stage">
-            <div className="envelope-illustration" aria-hidden>
-              <div className="envelope-body">
+            <div className="envelope-illustration">
+              <div className="envelope-body" aria-hidden>
                 <div className="envelope-flap" />
               </div>
+              <button
+                type="button"
+                className="wax-seal-badge pulse-seal wax-seal-on-flap"
+                onClick={openEnvelope}
+                aria-label="Pindutin ang selyo para buksan ang padala"
+              >
+                <span className="seal-emblem">{stickerItem.icon}</span>
+              </button>
             </div>
-            <button
-              type="button"
-              className="wax-seal-badge pulse-seal"
-              onClick={openEnvelope}
-              aria-label="Pindutin ang selyo para buksan ang padala"
-            >
-              <span className="seal-emblem">{stickerItem.icon}</span>
-            </button>
             <span className="seal-hint-label">
               Pindutin ang selyo para buksan ang padala 💌
             </span>
@@ -547,9 +547,9 @@ export default function Reveal({
           </div>
         )}
 
-        {/* Now playing */}
+        {/* Mute only — kanta tumutugtog pa rin, walang label ng pamagat */}
         {stage >= 1 && isPlayingMusic && (
-          <div className="subtle-now-playing-badge">
+          <div className="subtle-now-playing-badge mute-only-badge">
             <button
               type="button"
               onClick={toggleMute}
@@ -557,11 +557,7 @@ export default function Reveal({
               title={isAudioMuted ? "I-unmute" : "I-mute"}
               aria-label={isAudioMuted ? "I-unmute ang tunog" : "I-mute ang tunog"}
             >
-              <Music size={14} className={usingSynth ? undefined : "music-spin-icon"} />
-              <span>
-                Tumutugtog: {playingLabel || "Himig ng Pag-ibig"}
-              </span>
-              {isAudioMuted ? <VolumeX size={13} /> : <Volume2 size={13} />}
+              {isAudioMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
             </button>
           </div>
         )}
@@ -589,11 +585,18 @@ export default function Reveal({
         {/* STAGE 4+: letter */}
         {stage >= 4 && (
           <div
-            className={`handwritten-letter-card ${stage === 4 ? "letter-unfolding" : ""}`}
+            className={`handwritten-letter-card letter-theme-${data.c || "classic"} ${stage === 4 ? "letter-unfolding" : ""}`}
+            data-theme={data.c || "classic"}
             style={{
               background: currentTheme.bg,
               color: currentTheme.text,
               borderColor: currentTheme.border,
+              borderWidth: 2,
+              borderStyle: "solid",
+              boxShadow:
+                (data.c || "classic") === "midnight"
+                  ? "0 16px 40px rgba(0,0,0,0.55)"
+                  : "0 16px 36px rgba(0,0,0,0.22)",
             }}
             onClick={finishTyping}
             role="button"
