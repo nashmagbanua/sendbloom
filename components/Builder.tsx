@@ -8,6 +8,9 @@ import {
   CardTheme,
   CARD_THEMES,
   CARD_THEME_ORDER,
+  ClosingId,
+  CLOSINGS,
+  CLOSING_ORDER,
   Flower,
   FlowerType,
   FLOWER_META,
@@ -16,6 +19,9 @@ import {
   MAX_MSG,
   MAX_NAME,
   PRESETS,
+  SALUTATION_ORDER,
+  SALUTATIONS,
+  SalutationId,
   SUGGESTED_SONGS,
   StickerId,
   STICKER_META,
@@ -23,6 +29,7 @@ import {
   WrapId,
   WRAPS,
   WRAP_ORDER,
+  WRITING_PROMPTS,
 } from "@/lib/constants";
 import { playFlowerPop, playRustle, setSoundMuted } from "@/lib/audio";
 import {
@@ -66,6 +73,8 @@ export default function Builder() {
   const [msg, setMsg] = useState("");
   const [songTitle, setSongTitle] = useState("");
   const [songArtist, setSongArtist] = useState("");
+  const [salutation, setSalutation] = useState<SalutationId>("mahal");
+  const [closing, setClosing] = useState<ClosingId>("nagmamahal");
   const [link, setLink] = useState("");
   const [toast, setToast] = useState("");
   const [activeTab, setActiveTab] = useState<StepTab>("flowers");
@@ -76,6 +85,16 @@ export default function Builder() {
   const [triedSubmit, setTriedSubmit] = useState(false);
   const [showCoffeeModal, setShowCoffeeModal] = useState(false);
   const [copiedGCash, setCopiedGCash] = useState(false);
+  const [songTryStatus, setSongTryStatus] = useState<
+    "idle" | "loading" | "found" | "notfound"
+  >("idle");
+  const [songTryResult, setSongTryResult] = useState<{
+    title?: string;
+    artist?: string;
+    artwork?: string;
+    audioUrl?: string;
+  } | null>(null);
+  const tryAudioRef = useRef<HTMLAudioElement | null>(null);
 
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -89,7 +108,16 @@ export default function Builder() {
   useEffect(() => {
     setLink("");
     setCopied(false);
-  }, [flowers, wrap, cardTheme, sticker, to, from, msg, songTitle, songArtist]);
+  }, [flowers, wrap, cardTheme, sticker, to, from, msg, songTitle, songArtist, salutation, closing]);
+
+  useEffect(() => {
+    setSongTryStatus("idle");
+    setSongTryResult(null);
+    if (tryAudioRef.current) {
+      tryAudioRef.current.pause();
+      tryAudioRef.current = null;
+    }
+  }, [songTitle, songArtist]);
 
   function showToast(text: string) {
     setToast(text);
@@ -175,11 +203,61 @@ export default function Builder() {
     setSticker(p.sticker);
     setSelectedPresetId(p.id);
     setSelectedFlowerIndex(null);
-    if (p.defaultMsg) {
-      setMsg(p.defaultMsg);
-    }
+    // Do NOT overwrite a message the sender already typed
+    if (p.defaultSal) setSalutation(p.defaultSal);
+    if (p.defaultClo) setClosing(p.defaultClo);
     if (soundEnabled) playFlowerPop(4);
     showToast(`Inilapat ang preset para sa ${p.name}! ✨`);
+  }
+
+  function usePresetMessage(text: string) {
+    setMsg(text);
+    showToast("Ginamit ang mungkahing mensahe ✍️");
+  }
+
+  async function trySong() {
+    const title = songTitle.trim();
+    const artist = songArtist.trim();
+    if (!title && !artist) {
+      showToast("Maglagay muna ng pamagat ng kanta");
+      return;
+    }
+    setSongTryStatus("loading");
+    setSongTryResult(null);
+    if (tryAudioRef.current) {
+      tryAudioRef.current.pause();
+      tryAudioRef.current = null;
+    }
+    try {
+      const res = await fetch(
+        `/api/song?title=${encodeURIComponent(title)}&artist=${encodeURIComponent(artist)}`
+      );
+      const data = await res.json();
+      if (data.found && data.audioUrl) {
+        setSongTryStatus("found");
+        setSongTryResult({
+          title: data.title,
+          artist: data.artist,
+          artwork: data.artwork,
+          audioUrl: data.audioUrl,
+        });
+        const audio = new Audio(data.audioUrl);
+        audio.volume = 0.4;
+        tryAudioRef.current = audio;
+        audio.play().catch(() => {});
+        // Short preview ~8s
+        setTimeout(() => {
+          if (tryAudioRef.current === audio) {
+            audio.pause();
+          }
+        }, 8000);
+      } else {
+        setSongTryStatus("notfound");
+        setSongTryResult(null);
+      }
+    } catch {
+      setSongTryStatus("notfound");
+    }
   }
 
   function validateAndProceedToWrap() {
@@ -225,6 +303,8 @@ export default function Builder() {
       sa: songArtist.trim() || undefined,
       k: sticker,
       c: cardTheme,
+      sal: salutation,
+      clo: closing,
     };
     const code = encodeBouquet(bouquetData);
     const url = `${window.location.origin}/b/${code}`;
@@ -263,52 +343,54 @@ export default function Builder() {
   }
 
   /**
-   * Directly target Messenger without blocking delays.
-   * Works smoothly on iOS Safari / WebKit and Android.
+   * Try Messenger deep link; if the page is still visible after ~1.5s, be honest
+   * that the link was copied instead. Prefer navigator.share when available.
    */
   function messengerShare() {
     if (!link) return;
 
-    // Immediately copy link in background (no await so transient gesture is preserved)
     if (navigator.clipboard) {
       navigator.clipboard.writeText(link).catch(() => {});
       setCopied(true);
       setTimeout(() => setCopied(false), 2500);
     }
 
-    const isIOS = typeof navigator !== "undefined" && /iPad|iPhone|iPod/.test(navigator.userAgent);
     const text = `May espesyal na digital bouquet para kay ${to.trim() || "sa iyo"} 💐`;
 
-    // 1. On iOS: Calling navigator.share directly during the click gesture natively displays
-    // the system share card where Messenger is prominently listed at the top!
-    if (isIOS && typeof navigator !== "undefined" && navigator.share) {
-      try {
-        navigator.share({
-          title: "SendBloom Bouquet",
-          text,
-          url: link,
-        }).catch((err: any) => {
-          if (err?.name !== "AbortError") {
-            // Fallback to fb-messenger scheme
-            window.location.href = `fb-messenger://share?link=${encodeURIComponent(link)}`;
-          }
+    if (typeof navigator !== "undefined" && navigator.share) {
+      navigator
+        .share({ title: "SendBloom Bouquet", text, url: link })
+        .then(() => showToast("Na-share na! 💬"))
+        .catch((err: unknown) => {
+          if (err && typeof err === "object" && "name" in err && (err as { name: string }).name === "AbortError")
+            return;
+          // Fall through to deep link
+          tryDeepLink();
         });
-        showToast("Binubuksan ang Messenger... 💬");
-        return;
-      } catch {}
+      return;
     }
 
-    const isMobile = typeof navigator !== "undefined" && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    tryDeepLink();
 
-    if (isMobile) {
-      showToast("Binubuksan ang Messenger app... 💬");
-      window.location.href = `fb-messenger://share?link=${encodeURIComponent(link)}`;
-    } else {
-      showToast("Binubuksan ang Messenger... 💬");
-      window.open(
-        `https://www.facebook.com/dialog/send?link=${encodeURIComponent(link)}&app_id=291494419107518&redirect_uri=${encodeURIComponent(link)}`,
-        "_blank"
-      );
+    function tryDeepLink() {
+      const isMobile =
+        typeof navigator !== "undefined" &&
+        /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+      showToast("Binubuksan ang Messenger… 💬");
+      if (isMobile) {
+        window.location.href = `fb-messenger://share?link=${encodeURIComponent(link)}`;
+      } else {
+        window.open(
+          `https://www.facebook.com/dialog/send?link=${encodeURIComponent(link)}&app_id=291494419107518&redirect_uri=${encodeURIComponent(link)}`,
+          "_blank"
+        );
+      }
+      // If still on this page after 1.5s, Messenger likely didn't open
+      setTimeout(() => {
+        if (typeof document !== "undefined" && document.visibilityState === "visible") {
+          showToast("Hindi nabuksan ang Messenger, nakopya ang link 📋");
+        }
+      }, 1500);
     }
   }
 
@@ -689,7 +771,7 @@ export default function Builder() {
               })}
             </div>
 
-            <div className="section-label mt-4">Wax Seal / Sticker sa Sobre</div>
+            <div className="section-label u-mt-4">Wax Seal / Sticker sa Sobre</div>
             <div className="stickers-row">
               {STICKER_ORDER.map((sId) => (
                 <button
@@ -707,8 +789,8 @@ export default function Builder() {
               ))}
             </div>
 
-            <div className="fields-group mt-4">
-              {/* Para kay (REQUIRED - CANNOT PROCEED WITHOUT IT) */}
+            <div className="fields-group u-mt-4">
+              {/* Para kay (REQUIRED) */}
               <label className="input-field">
                 <div className="field-header-row">
                   <span className="field-label">Para kay:</span>
@@ -727,8 +809,25 @@ export default function Builder() {
                 )}
               </label>
 
+              {/* Salutation */}
+              <div className="input-field u-mt-3">
+                <span className="field-label">Pagbati / Salutation:</span>
+                <div className="sal-clo-row">
+                  {SALUTATION_ORDER.map((id) => (
+                    <button
+                      key={id}
+                      type="button"
+                      className={`sal-clo-chip ${salutation === id ? "active" : ""}`}
+                      onClick={() => setSalutation(id)}
+                    >
+                      {SALUTATIONS[id].label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Mensahe */}
-              <label className="input-field mt-3">
+              <label className="input-field u-mt-3">
                 <span className="field-label">Ang Iyong Sulat / Mensahe:</span>
                 <textarea
                   className="textarea-input"
@@ -741,10 +840,58 @@ export default function Builder() {
                 <div className="char-count">
                   {msg.length}/{MAX_MSG} titik
                 </div>
+                <div className="writing-prompts">
+                  {WRITING_PROMPTS.map((p) => (
+                    <button
+                      key={p}
+                      type="button"
+                      className="writing-prompt"
+                      onClick={() => {
+                        if (!msg.trim()) setMsg(p.replace("…", " "));
+                        else showToast(p);
+                      }}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
+                {selectedPresetId && (() => {
+                  const preset = PRESETS.find((x) => x.id === selectedPresetId);
+                  if (!preset?.defaultMsg) return null;
+                  return (
+                    <div className="suggestion-chips">
+                      <button
+                        type="button"
+                        className="suggestion-chip"
+                        onClick={() => usePresetMessage(preset.defaultMsg!)}
+                      >
+                        Gamitin ito: {preset.defaultMsg.slice(0, 48)}
+                        {preset.defaultMsg.length > 48 ? "…" : ""}
+                      </button>
+                    </div>
+                  );
+                })()}
               </label>
 
-              {/* Mula kay (REQUIRED - CANNOT PROCEED WITHOUT IT) */}
-              <label className="input-field mt-3">
+              {/* Closing */}
+              <div className="input-field u-mt-3">
+                <span className="field-label">Pagsasara / Closing:</span>
+                <div className="sal-clo-row">
+                  {CLOSING_ORDER.map((id) => (
+                    <button
+                      key={id}
+                      type="button"
+                      className={`sal-clo-chip ${closing === id ? "active" : ""}`}
+                      onClick={() => setClosing(id)}
+                    >
+                      {CLOSINGS[id].label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Mula kay (REQUIRED) */}
+              <label className="input-field u-mt-3">
                 <div className="field-header-row">
                   <span className="field-label">Mula kay:</span>
                   <span className="field-required-tag">* Kinakailangan</span>
@@ -762,18 +909,17 @@ export default function Builder() {
                 )}
               </label>
 
-              {/* Kalakip na Kanta na may Dropdown */}
-              <div className="song-selector-section mt-4">
-                <span className="field-label flex items-center gap-1">
-                  <Music size={15} className="text-rose-500 inline mr-1" />
+              {/* Kalakip na Kanta */}
+              <div className="song-selector-section u-mt-4">
+                <span className="field-label u-inline-flex u-items-center u-gap-1">
+                  <Music size={15} className="u-inline u-mr-1" />
                   Kalakip na Kanta:
                 </span>
                 <span className="field-sub-hint">
                   Pumili sa drop-down ng mga sikat na kanta, o i-type ang sariling pamagat:
                 </span>
 
-                {/* Song Selection Dropdown */}
-                <div className="song-dropdown-container mt-2">
+                <div className="song-dropdown-container u-mt-2">
                   <select
                     className="song-dropdown-select"
                     value={
@@ -801,7 +947,7 @@ export default function Builder() {
                   </select>
                 </div>
 
-                <div className="song-inputs-row mt-3">
+                <div className="song-inputs-row u-mt-3">
                   <input
                     type="text"
                     className="text-input"
@@ -812,7 +958,7 @@ export default function Builder() {
                   />
                   <input
                     type="text"
-                    className="text-input mt-2"
+                    className="text-input u-mt-2"
                     placeholder="Mang-aawit / Artist (Opsyonal)"
                     value={songArtist}
                     maxLength={50}
@@ -820,15 +966,41 @@ export default function Builder() {
                   />
                 </div>
 
-                {songTitle.trim() && (
-                  <span className="field-success-text mt-1 block">
-                    ✓ Awtomatikong tutugtog ang &ldquo;{songTitle}&rdquo; pagkapindot ng Seal!
+                <div className="actions-row u-mt-2">
+                  <button
+                    type="button"
+                    className="secondary-btn"
+                    onClick={trySong}
+                    disabled={songTryStatus === "loading" || (!songTitle.trim() && !songArtist.trim())}
+                  >
+                    {songTryStatus === "loading" ? "Hinahanap…" : "Subukan ang kanta"}
+                  </button>
+                </div>
+
+                {songTryStatus === "found" && songTryResult && (
+                  <div className="song-try-result">
+                    {songTryResult.artwork && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={songTryResult.artwork} alt="" />
+                    )}
+                    <div className="song-try-meta">
+                      <div className="song-try-title">{songTryResult.title}</div>
+                      <div className="song-try-artist">{songTryResult.artist}</div>
+                      <span className="field-success-text u-block u-mt-1">
+                        ✓ Tutugtog ang kanta pagkapindot ng selyo
+                      </span>
+                    </div>
+                  </div>
+                )}
+                {songTryStatus === "notfound" && (
+                  <span className="song-try-fail">
+                    Hindi nahanap, subukan ang ibang pamagat
                   </span>
                 )}
               </div>
             </div>
 
-            <div className="actions-row mt-6">
+            <div className="actions-row u-mt-6">
               <button
                 type="button"
                 className="secondary-btn"
