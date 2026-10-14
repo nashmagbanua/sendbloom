@@ -5,13 +5,18 @@ export type Flower = { t: FlowerType; c: number };
 export type StickerId = "heart" | "sparkles" | "butterfly" | "ribbon" | "cupid";
 export type CardTheme = "classic" | "parchment" | "romantic" | "midnight";
 
+/** Salutation prefix for the letter (empty string = none) */
+export type SalutationId = "mahal" | "kay" | "hi" | "none";
+/** Closing / signature lead-in (empty string = none) */
+export type ClosingId = "nagmamahal" | "nagmamalasakit" | "kaibigan" | "taos" | "none";
+
 export type Bouquet = {
   to: string;
   from: string;
   msg: string;
   w: WrapId;
   f: Flower[];
-  /** optional legacy https link to a song */
+  /** optional legacy https link to a song (decoded only, never encoded) */
   s?: string;
   /** song title for automatic search & play */
   st?: string;
@@ -21,7 +26,45 @@ export type Bouquet = {
   k?: StickerId;
   /** optional stationery theme */
   c?: CardTheme;
+  /** optional salutation id; defaults to "mahal" when absent (old links) */
+  sal?: SalutationId;
+  /** optional closing id; defaults to "nagmamahal" when absent (old links) */
+  clo?: ClosingId;
 };
+
+export const SALUTATIONS: Record<
+  SalutationId,
+  { label: string; template: (to: string) => string }
+> = {
+  mahal: { label: "Mahal kong…", template: (to) => (to ? `Mahal kong ${to},` : "Mahal ko,") },
+  kay: { label: "Kay…", template: (to) => (to ? `Kay ${to},` : "") },
+  hi: { label: "Hi…", template: (to) => (to ? `Hi ${to},` : "Hi,") },
+  none: { label: "Wala", template: () => "" },
+};
+
+export const CLOSINGS: Record<ClosingId, { label: string; text: string }> = {
+  nagmamahal: { label: "Nagmamahal,", text: "Nagmamahal," },
+  nagmamalasakit: { label: "Nagmamalasakit,", text: "Nagmamalasakit," },
+  kaibigan: { label: "Ang iyong kaibigan,", text: "Ang iyong kaibigan," },
+  taos: { label: "Taos-pusong bumabati,", text: "Taos-pusong bumabati," },
+  none: { label: "Wala", text: "" },
+};
+
+export const SALUTATION_ORDER: SalutationId[] = ["mahal", "kay", "hi", "none"];
+export const CLOSING_ORDER: ClosingId[] = [
+  "nagmamahal",
+  "nagmamalasakit",
+  "kaibigan",
+  "taos",
+  "none",
+];
+
+export const WRITING_PROMPTS = [
+  "Isang bagay na naaalala mo kasama siya…",
+  "Ang gusto mong pasalamatan sa kanya…",
+  "Paano niya pinapangiti ang araw mo…",
+  "Ang nais mong sabihin pero mahirap sabihin nang harap-harapan…",
+];
 
 export const MAX_FLOWERS = 9;
 export const MAX_NAME = 30;
@@ -90,18 +133,22 @@ export type Preset = {
   cardTheme: CardTheme;
   sticker: StickerId;
   defaultMsg?: string;
+  defaultSal?: SalutationId;
+  defaultClo?: ClosingId;
 };
 
 export const PRESETS: Preset[] = [
   {
     id: "mothers_day",
-    name: "Mother's Day / Pang-Nanay 🌸",
+    name: "Pang-Nanay 🌸",
     emoji: "🤱",
     desc: "Matatamis na rosas at liryo para sa pinakamamahal na Ina",
     wrap: "rose",
     cardTheme: "romantic",
     sticker: "heart",
-    defaultMsg: "Happy Mother's Day, Nanay! Salamat sa walang kapantay na pagmamahal, aruga, at sakripisyo mo para sa amin. Mahal na mahal po kita! 🌹💖",
+    defaultSal: "mahal",
+    defaultClo: "nagmamahal",
+    defaultMsg: "Salamat, Nanay, sa walang kapantay na pagmamahal, aruga, at sakripisyo mo. Mahal na mahal kita.",
     flowers: [
       { t: "rose", c: 1 },
       { t: "rose", c: 0 },
@@ -113,13 +160,15 @@ export const PRESETS: Preset[] = [
   },
   {
     id: "fathers_day",
-    name: "Father's Day / Pang-Tatay 👔",
+    name: "Pang-Tatay 👔",
     emoji: "👨",
     desc: "Matingkad na sunflower at kraft wrap para sa haligi ng tahanan",
     wrap: "kraft",
     cardTheme: "parchment",
     sticker: "sparkles",
-    defaultMsg: "Happy Father's Day, Tatay/Papa! Maraming salamat sa iyong sipag, gabay, at lakas para sa ating pamilya. Saludo ako sa iyo palagi! 🌻💪",
+    defaultSal: "mahal",
+    defaultClo: "nagmamahal",
+    defaultMsg: "Salamat, Tatay, sa iyong sipag, gabay, at lakas para sa ating pamilya. Saludo ako sa iyo palagi.",
     flowers: [
       { t: "sunflower", c: 0 },
       { t: "sunflower", c: 1 },
@@ -130,13 +179,15 @@ export const PRESETS: Preset[] = [
   },
   {
     id: "teachers_day",
-    name: "Teacher's Day / Pang-Guro 📚",
+    name: "Pang-Guro 📚",
     emoji: "🧑‍🏫",
     desc: "Kagalang-galang na liryo at daisies bilang pasasalamat sa guro",
     wrap: "mint",
     cardTheme: "classic",
     sticker: "sparkles",
-    defaultMsg: "Happy Teacher's Day po! Maraming salamat sa inyong pasensya, talino, at walang sawang paggabay sa aming kinabukasan. Mabuhay po kayo! 💐📖",
+    defaultSal: "kay",
+    defaultClo: "taos",
+    defaultMsg: "Maraming salamat po sa inyong pasensya, talino, at walang sawang paggabay sa aming kinabukasan. Mabuhay po kayo.",
     flowers: [
       { t: "lily", c: 0 },
       { t: "daisy", c: 0 },
@@ -153,7 +204,9 @@ export const PRESETS: Preset[] = [
     wrap: "kraft",
     cardTheme: "classic",
     sticker: "sparkles",
-    defaultMsg: "Maligayang Kaarawan! Nawa'y mapuno ng ngiti, ligaya, at pagpapala ang iyong espesyal na araw! 🌻✨",
+    defaultSal: "hi",
+    defaultClo: "nagmamahal",
+    defaultMsg: "Maligayang kaarawan! Nawa'y mapuno ng ngiti, ligaya, at pagpapala ang iyong espesyal na araw.",
     flowers: [
       { t: "sunflower", c: 0 },
       { t: "sunflower", c: 0 },
@@ -165,13 +218,15 @@ export const PRESETS: Preset[] = [
   },
   {
     id: "anniversary",
-    name: "Anniversary / Valentine's 💖",
+    name: "Anniversary / Pag-ibig 💖",
     emoji: "💖",
     desc: "Pulang rosas at matamis na tulips ng pag-ibig",
     wrap: "rose",
     cardTheme: "romantic",
     sticker: "heart",
-    defaultMsg: "Happy Anniversary / Valentine's! Salamat sa bawat araw na kasama kita. Ikaw ang laging tinitibok ng puso ko! 🌹",
+    defaultSal: "mahal",
+    defaultClo: "nagmamahal",
+    defaultMsg: "Salamat sa bawat araw na kasama kita. Ikaw ang laging tinitibok ng puso ko.",
     flowers: [
       { t: "rose", c: 0 },
       { t: "rose", c: 0 },
@@ -183,13 +238,15 @@ export const PRESETS: Preset[] = [
   },
   {
     id: "sorry",
-    name: "Pang-Sorry / Patawad 🥺",
+    name: "Patawad 🥺",
     emoji: "🥺",
     desc: "Malinis na puting liryo at pastel daisies",
     wrap: "mint",
     cardTheme: "classic",
     sticker: "butterfly",
-    defaultMsg: "Patawad po. Hindi ko sinasadyang masaktan ka. Napakahalaga mo sa akin at nais kong ayusin ang lahat.",
+    defaultSal: "mahal",
+    defaultClo: "nagmamalasakit",
+    defaultMsg: "Patawad. Hindi ko sinasadyang masaktan ka. Napakahalaga mo sa akin at nais kong ayusin ang lahat.",
     flowers: [
       { t: "lily", c: 0 },
       { t: "lily", c: 1 },
@@ -201,13 +258,15 @@ export const PRESETS: Preset[] = [
   },
   {
     id: "ldr",
-    name: "Pang-Long Distance (LDR) ✈️",
+    name: "Pang-Long Distance ✈️",
     emoji: "✈️",
     desc: "Bulaklak na hindi nalalanta kahit malayo ka",
     wrap: "night",
     cardTheme: "midnight",
     sticker: "sparkles",
-    defaultMsg: "Kahit libo-libong kilometro ang layo natin, palagi kang nasa isip at puso ko. Bulaklak ito na kailanman ay hindi malalanta! 💐",
+    defaultSal: "mahal",
+    defaultClo: "nagmamahal",
+    defaultMsg: "Kahit libo-libong kilometro ang layo natin, palagi kang nasa isip at puso ko. Bulaklak ito na kailanman ay hindi malalanta.",
     flowers: [
       { t: "rose", c: 4 },
       { t: "tulip", c: 3 },
@@ -219,13 +278,15 @@ export const PRESETS: Preset[] = [
   },
   {
     id: "surprise",
-    name: "Surpresa / Walang Okasyon 🌸",
+    name: "Surpresa 🌸",
     emoji: "🌸",
     desc: "Pampasaya lang para mapangiti ang araw mo",
     wrap: "rose",
     cardTheme: "romantic",
     sticker: "ribbon",
-    defaultMsg: "Walang espesyal na okasyon—naisipan lang kitang padalhan ng bulaklak para ipaalala na espesyal ka sa akin araw-araw! 😊",
+    defaultSal: "hi",
+    defaultClo: "nagmamahal",
+    defaultMsg: "Walang espesyal na okasyon—naisipan lang kitang padalhan ng bulaklak para ipaalala na espesyal ka sa akin araw-araw.",
     flowers: [
       { t: "rose", c: 1 },
       { t: "tulip", c: 0 },
