@@ -2813,3 +2813,321 @@ textarea {
 .text-rose-500 { color: #f43f5e; }
 .text-amber-600 { color: #d97706; }
 .flex { display: flex; }
+
+/* ═══════════════════════════════════════════════════════════
+   REVEAL PATCH — idagdag sa PINAKADULO ng global CSS mo
+   (para manalo sa mga lumang rules na parehong specificity)
+   ═══════════════════════════════════════════════════════════ */
+
+/* ───────── 1. Page wrapper: walang nested scroll, walang layout jump ───────── */
+.reveal-page-wrapper {
+  overflow: hidden;
+  overflow: clip; /* ginagamit kung supported; iwas nested scroll dahil sa petals */
+}
+
+/* Centered kapag may sobrang espasyo, top-aligned kapag mataas ang laman.
+   Tuloy-tuloy ang galaw habang lumalaki ang sulat (walang biglang talon). */
+.reveal-page-wrapper,
+.reveal-page-wrapper.reveal-stage-3,
+.reveal-page-wrapper.reveal-stage-4,
+.reveal-page-wrapper.reveal-stage-5 {
+  justify-content: flex-start;
+  padding: 24px 16px calc(36px + env(safe-area-inset-bottom, 16px));
+}
+
+.revealed-content-stage {
+  margin-block: auto;
+}
+
+/* ───────── 2. Bouquet: mananatili habang bukas ang sulat ───────── */
+
+/* Ang malaking drop-shadow filter sa gumagalaw na SVG ang pinakamabigat sa phone.
+   Static na anino na lang sa ilalim. */
+.blooming-bouquet-display,
+.blooming-bouquet-display.bouquet-compact,
+.blooming-bouquet-display.bouquet-tuck {
+  filter: none;
+  position: relative;
+  isolation: isolate;
+}
+
+.blooming-bouquet-display::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  left: 14%;
+  right: 14%;
+  bottom: -2px;
+  height: 20px;
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.38), transparent 70%);
+}
+
+.blooming-bouquet-display.bouquet-compact {
+  width: min(46vw, 150px);
+  margin-bottom: 6px;
+  transition: width 0.6s cubic-bezier(0.2, 0.8, 0.3, 1), margin 0.6s ease;
+}
+
+/* Mas maliit pa kapag bukas na ang sulat, para kasya sa screen */
+.blooming-bouquet-display.bouquet-tuck {
+  width: min(34vw, 118px);
+  margin-bottom: 4px;
+}
+
+/* ───────── 3. SVG transform-origin (para hindi lumipad mula sa kaliwang taas) ───────── */
+.bl-head {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.bl-leaf {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+.bl-wrap {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+
+/* ───────── 4. Letter scene: ISANG envelope, sa loob nito lumalabas ang sulat ───────── */
+
+.letter-scene {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  margin-top: 4px;
+}
+
+/* Slot: lumalaki mula 0 papunta sa buong taas ng sulat (smooth, walang jump) */
+.letter-slot {
+  display: grid;
+  grid-template-rows: 0fr;
+  width: 100%;
+  transition: grid-template-rows 0.85s cubic-bezier(0.2, 0.8, 0.3, 1) 0.35s;
+}
+
+.letter-scene.is-open .letter-slot {
+  grid-template-rows: 1fr;
+}
+
+.letter-slot-inner {
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
+  z-index: 2; /* nasa itaas ng likod/flap ng envelope, sa ilalim ng front pocket */
+  visibility: hidden; /* hindi ma-focus / hindi nakikita habang nakasara */
+}
+
+.letter-scene.is-open .letter-slot-inner {
+  visibility: visible;
+}
+
+.letter-slot-pad {
+  display: flex;
+  justify-content: center;
+  padding: 6px 12px 0; /* espasyo para sa anino at bahagyang pag-ikot */
+}
+
+.letter-slot .handwritten-letter-card {
+  position: relative;
+  width: min(86vw, 340px);
+  max-height: min(40dvh, 280px);
+  margin: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  transform: rotate(-1deg);
+  animation: none; /* alisin ang lumang letter-enter para walang replay sa stage 5 */
+}
+
+.letter-scene.is-open .letter-slot .handwritten-letter-card {
+  animation: lt-letter-pull 0.85s cubic-bezier(0.2, 0.85, 0.3, 1) 0.35s both;
+}
+
+/* Parehong dulo ng base transform (rotate -1deg), kaya walang talon */
+@keyframes lt-letter-pull {
+  from {
+    transform: translateY(46px) scale(0.94) rotate(1.5deg);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1) rotate(-1deg);
+    opacity: 1;
+  }
+}
+
+.letter-ghost {
+  visibility: hidden;
+}
+
+.typing-cursor {
+  display: inline-block;
+  width: 0;
+  overflow: visible;
+}
+
+.letter-sig-hidden {
+  visibility: hidden;
+}
+
+/* ── Ang envelope ── */
+.lt-env {
+  position: relative; /* walang z-index: para makasali ang mga bahagi sa stacking ng scene */
+  width: 190px;
+  height: 104px;
+  margin-top: 0;
+  cursor: pointer;
+  transition: margin-top 0.85s cubic-bezier(0.2, 0.8, 0.3, 1) 0.35s;
+}
+
+/* Tumataas ang envelope ng 56px papunta sa ilalim ng sulat → nakatago ang ibabang bahagi
+   ng sulat sa loob ng envelope */
+.letter-scene.is-open .lt-env {
+  margin-top: -56px;
+  cursor: default;
+}
+
+.lt-env-back {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(160deg, #f0dcc4 0%, #e0c09a 100%);
+  border-radius: 4px 4px 10px 10px;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.28);
+}
+
+.lt-env-front {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  background: linear-gradient(160deg, #f4e3cb 0%, #dcb98f 100%);
+  clip-path: polygon(0 26%, 50% 54%, 100% 26%, 100% 100%, 0 100%);
+  border-radius: 0 0 10px 10px;
+}
+
+.lt-env-flap {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 58%;
+  z-index: 4;
+  background: linear-gradient(180deg, #c9a06e 0%, #b88955 100%);
+  clip-path: polygon(0 0, 50% 90%, 100% 0);
+  transform-origin: top center;
+}
+
+/* Bumubukas ang flap (pumapatag, tapos tumataas), at napupunta sa likod ng sulat */
+.letter-scene.is-open .lt-env-flap {
+  animation: lt-flap-open 0.55s ease forwards;
+}
+
+@keyframes lt-flap-open {
+  0% {
+    transform: scaleY(1);
+    z-index: 4;
+  }
+  49% {
+    transform: scaleY(0.05);
+    z-index: 4;
+  }
+  50% {
+    transform: scaleY(0.05);
+    z-index: 1;
+  }
+  100% {
+    transform: scaleY(-1);
+    z-index: 1;
+  }
+}
+
+/* Wax seal (button) — naka-position gamit left/top para hindi mag-away sa pulse scale */
+.lt-seal {
+  position: absolute;
+  z-index: 5;
+  left: calc(50% - 24px);
+  top: 24px;
+  width: 48px;
+  height: 48px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  animation: lt-seal-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes lt-seal-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.08);
+  }
+}
+
+.letter-scene.letter-nudge .lt-seal {
+  animation: lt-seal-pulse 1s ease-in-out infinite, lt-seal-hop 0.55s ease-in-out infinite alternate;
+}
+
+@keyframes lt-seal-hop {
+  from {
+    translate: 0 0;
+  }
+  to {
+    translate: 0 -5px;
+  }
+}
+
+/* Nababasag/nawawala ang seal pagbukas */
+.letter-scene.is-open .lt-seal {
+  animation: none;
+  opacity: 0;
+  transform: scale(1.7);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  pointer-events: none;
+}
+
+.lt-hint {
+  margin-top: 10px;
+  max-height: 40px;
+  overflow: hidden;
+  transition: opacity 0.3s ease, max-height 0.5s ease, margin 0.5s ease;
+}
+
+.letter-scene.is-open .lt-hint {
+  opacity: 0;
+  max-height: 0;
+  margin-top: 0;
+}
+
+/* ───────── 5. Mas magaan sa low-end phone ───────── */
+.action-pill-btn.secondary {
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.petal {
+  will-change: transform, opacity;
+  animation-fill-mode: backwards;
+}
+
+/* ───────── 6. Reduced motion ───────── */
+@media (prefers-reduced-motion: reduce) {
+  .letter-slot,
+  .lt-env,
+  .blooming-bouquet-display.bouquet-compact {
+    transition: none;
+  }
+  .letter-scene .lt-env-flap {
+    animation: none;
+  }
+  .letter-scene.is-open .lt-env-flap {
+    transform: scaleY(-1);
+    z-index: 1;
+  }
+  .letter-scene.is-open .letter-slot .handwritten-letter-card {
+    animation: none;
+  }
+}
