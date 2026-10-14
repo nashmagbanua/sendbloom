@@ -306,6 +306,8 @@ export type BouquetOpts = {
   className?: string;
   onFlowerClick?: (index: number) => void;
   selectedFlowerIndex?: number | null;
+  /** When true, omit interactive props (className/onClick/cursor) for satori/OG image */
+  forImage?: boolean;
 };
 
 export function bouquetSvg(b: Pick<Bouquet, "f" | "w">, o: BouquetOpts = {}): ReactElement {
@@ -395,11 +397,18 @@ export function bouquetSvg(b: Pick<Bouquet, "f" | "w">, o: BouquetOpts = {}): Re
     return (
       <path
         key={`st${i}`}
+        className={o.animated && !o.forImage ? "bl-stem" : undefined}
+        style={
+          o.animated && !o.forImage
+            ? { animationDelay: `${0.05 + i * 0.06}s` }
+            : undefined
+        }
         d={`M${AX},${AY} Q${(AX + x) / 2},${(AY + y) / 2 + 25} ${x},${y}`}
         fill="none"
         stroke="#2d6a4f"
         strokeWidth={4.8}
         strokeLinecap="round"
+        pathLength={1}
       />
     );
   });
@@ -424,14 +433,27 @@ export function bouquetSvg(b: Pick<Bouquet, "f" | "w">, o: BouquetOpts = {}): Re
     const fl = b.f[i];
     const color = FLOWER_META[fl.t].colors[fl.c] ?? FLOWER_META[fl.t].colors[0];
     const rot = ((i * 37) % 40) - 20;
-    const isSelected = o.selectedFlowerIndex === i;
-    const swayClass = `flower-sway flower-sway-${i % 4}`;
+    const isSelected = !o.forImage && o.selectedFlowerIndex === i;
+    const swayClass = o.forImage ? "" : `flower-sway flower-sway-${i % 4}`;
+    const bloomClass = o.animated && !o.forImage ? "bl-head" : "";
+    const interactive = !o.forImage && !!o.onFlowerClick;
+    const cls = o.forImage
+      ? undefined
+      : [swayClass, bloomClass, interactive ? "flower-head-interactive" : ""]
+          .filter(Boolean)
+          .join(" ") || undefined;
     return (
       <g
         key={`hd${i}`}
-        className={`${swayClass} ${o.onFlowerClick ? "flower-head-interactive" : ""}`}
-        style={{ cursor: o.onFlowerClick ? "pointer" : undefined }}
-        onClick={o.onFlowerClick ? () => o.onFlowerClick!(i) : undefined}
+        className={cls}
+        style={
+          interactive
+            ? { cursor: "pointer", animationDelay: o.animated ? `${0.35 + i * 0.12}s` : undefined }
+            : o.animated && !o.forImage
+              ? { animationDelay: `${0.35 + i * 0.12}s` }
+              : undefined
+        }
+        onClick={interactive ? () => o.onFlowerClick!(i) : undefined}
       >
         {isSelected && (
           <circle
