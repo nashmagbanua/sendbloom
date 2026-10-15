@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useMemo } from "react";
-import Image from "next/image";
+import React, { useMemo, useState } from "react";
+import BouquetSVG from "./BouquetSVG";
 import { Flower, WrapId, FLOWER_META, WRAPS } from "../lib/constants";
 import { getFlowerAsset, getWrapAssets, getBouquetPositions, FOLIAGE_ASSET } from "../lib/realistic-assets";
 
@@ -19,6 +19,9 @@ export function RealisticBouquet({
   className = "",
   size = "md",
 }: RealisticBouquetProps) {
+  // Fail-safe flag: if any realistic asset fails to load, gracefully fallback to BouquetSVG
+  const [hasError, setHasError] = useState(false);
+
   // Ensure we have at least 1 flower safely
   const safeFlowers = useMemo(() => {
     if (!flowers || flowers.length === 0) {
@@ -30,36 +33,36 @@ export function RealisticBouquet({
   const wrapAssets = useMemo(() => getWrapAssets(wrap), [wrap]);
   const positions = useMemo(() => getBouquetPositions(safeFlowers), [safeFlowers]);
 
-  // Proportional responsive sizing
+  // Proportional responsive sizing that fits within stage-svg-box and reveal views
   const sizeStyles = {
-    sm: "w-full max-w-[220px] aspect-[3/4]",
-    md: "w-full max-w-[340px] aspect-[3/4]",
-    lg: "w-full max-w-[420px] aspect-[3/4]",
+    sm: "w-full max-w-[200px] aspect-[500/670]",
+    md: "w-full max-w-[280px] aspect-[500/670] max-h-[260px]",
+    lg: "w-full max-w-[340px] aspect-[500/670]",
   }[size];
 
+  // If any image fails or error occurs, gracefully fallback to original rock-solid SVG bouquet
+  if (hasError) {
+    return (
+      <div className={`relative flex items-center justify-center mx-auto ${sizeStyles} ${className}`}>
+        <BouquetSVG data={{ f: safeFlowers, w: wrap }} animated={false} />
+      </div>
+    );
+  }
+
   // Description for accessibility
-  const description = useMemo(() => {
-    const counts: Record<string, number> = {};
-    safeFlowers.forEach((f) => {
-      const name = FLOWER_META[f.t]?.label || f.t;
-      counts[name] = (counts[name] || 0) + 1;
-    });
-    const summary = Object.entries(counts)
-      .map(([name, count]) => `${count} ${name}`)
-      .join(", ");
-    const wrapName = WRAPS[wrap]?.label || wrap;
-    return `Makatotohanang bouquet na may ${summary} sa ${wrapName} na balot`;
-  }, [safeFlowers, wrap]);
+  const description = safeFlowers
+    .map((f) => FLOWER_META[f.t]?.label || f.t)
+    .join(", ");
 
   return (
     <div
       className={`relative select-none flex items-center justify-center mx-auto overflow-visible ${sizeStyles} ${className}`}
       role="img"
-      aria-label={description}
+      aria-label={`Makatotohanang bouquet: ${description}`}
     >
       {/* Soft Florist Ambient Backlight Glow */}
       <div
-        className="absolute inset-0 -top-6 rounded-full opacity-35 blur-3xl pointer-events-none transition-colors duration-700"
+        className="absolute inset-0 -top-4 rounded-full opacity-30 blur-2xl pointer-events-none transition-colors duration-500"
         style={{
           background: `radial-gradient(circle, ${WRAPS[wrap]?.color || "#ffd166"} 0%, rgba(255,255,255,0) 70%)`,
         }}
@@ -68,113 +71,109 @@ export function RealisticBouquet({
       {/* Main Bouquet Composition Stage */}
       <div className="relative w-full h-full flex items-center justify-center">
         {/* Layer 0: Wrap Paper Cone (Back Layer) */}
-        <div className="absolute inset-0 z-0 pointer-events-none">
-          <Image
-            src={wrapAssets.full}
-            alt=""
-            fill
-            sizes="(max-width: 640px) 340px, 420px"
-            className="object-contain filter drop-shadow(0 14px 28px rgba(0, 0, 0, 0.22))"
-            priority
-            referrerPolicy="no-referrer"
-          />
-        </div>
+        <img
+          src={wrapAssets.full}
+          alt=""
+          width={500}
+          height={670}
+          className="absolute inset-0 w-full h-full object-contain filter drop-shadow(0 12px 24px rgba(0,0,0,0.22)) pointer-events-none"
+          loading="eager"
+          onError={() => setHasError(true)}
+        />
 
         {/* Layer 1: Lush Florist Greenery / Eucalyptus (Behind Blooms) */}
         <div
-          className="absolute pointer-events-none w-[74%] h-[55%] top-[5%] left-[13%] opacity-90"
-          style={{ zIndex: 1 }}
+          className="absolute pointer-events-none w-[78%] h-[50%] top-[4%] left-[11%] opacity-90"
+          style={{ zIndex: 2 }}
         >
           {/* Left eucalyptus branch */}
           <div
-            className="absolute -left-[10%] top-[4%] w-[55%] aspect-square transform -rotate-25 scale-90 filter drop-shadow(0 6px 12px rgba(0,0,0,0.3)) opacity-90"
+            className="absolute -left-[8%] top-[8%] w-[52%] aspect-square transform -rotate-25 scale-90 filter drop-shadow(0 4px 10px rgba(0,0,0,0.3))"
             style={{ willChange: "transform" }}
           >
-            <Image
+            <img
               src={FOLIAGE_ASSET}
               alt=""
-              fill
-              sizes="150px"
-              className="object-contain"
-              referrerPolicy="no-referrer"
+              width={200}
+              height={200}
+              className="w-full h-full object-contain"
+              loading="eager"
+              onError={() => setHasError(true)}
             />
           </div>
           {/* Right eucalyptus branch */}
           <div
-            className="absolute -right-[10%] top-[2%] w-[55%] aspect-square transform rotate-30 scale-95 scale-x-[-1] filter drop-shadow(0 6px 12px rgba(0,0,0,0.3)) opacity-85"
+            className="absolute -right-[8%] top-[6%] w-[52%] aspect-square transform rotate-28 scale-95 scale-x-[-1] filter drop-shadow(0 4px 10px rgba(0,0,0,0.3))"
             style={{ willChange: "transform" }}
           >
-            <Image
+            <img
               src={FOLIAGE_ASSET}
               alt=""
-              fill
-              sizes="150px"
-              className="object-contain"
-              referrerPolicy="no-referrer"
+              width={200}
+              height={200}
+              className="w-full h-full object-contain"
+              loading="eager"
+              onError={() => setHasError(true)}
             />
           </div>
         </div>
 
         {/* Layer 2: Flower Blooms Stage */}
-        {/* Flowers positioned between top cone edge and throat */}
+        {safeFlowers.map((flower, idx) => {
+          const pos = positions[idx] || {
+            xPct: 50,
+            yPct: 26,
+            widthPct: 34,
+            scale: 1,
+            rotate: 0,
+            zIndex: 10,
+          };
+          const flowerSrc = getFlowerAsset(flower.t, flower.c);
+
+          return (
+            <div
+              key={`${flower.t}-${flower.c}-${idx}`}
+              className="absolute pointer-events-none transition-transform duration-300 ease-out"
+              style={{
+                width: `${pos.widthPct}%`,
+                left: `${pos.xPct}%`,
+                top: `${pos.yPct}%`,
+                transform: `translate(-50%, -50%) rotate(${pos.rotate}deg) scale(${pos.scale})`,
+                zIndex: pos.zIndex,
+                willChange: "transform",
+              }}
+            >
+              <img
+                src={flowerSrc}
+                alt={FLOWER_META[flower.t]?.label || flower.t}
+                width={180}
+                height={180}
+                className="w-full h-auto object-contain filter drop-shadow(0 6px 14px rgba(0,0,0,0.35)) select-none"
+                loading="eager"
+                onError={() => setHasError(true)}
+              />
+            </div>
+          );
+        })}
+
+        {/* Layer 3: Wrap Front Sleeve & Ribbon Bow (Front Pocket Overlay) */}
+        <img
+          src={wrapAssets.front}
+          alt=""
+          width={500}
+          height={670}
+          className="absolute inset-0 w-full h-full object-contain filter drop-shadow(0 6px 14px rgba(0,0,0,0.18)) pointer-events-none"
+          style={{ zIndex: 20 }}
+          loading="eager"
+          onError={() => setHasError(true)}
+        />
+
+        {/* Subtle realistic gloss highlight over ribbon */}
         <div
-          className="absolute top-[8%] left-[6%] right-[6%] h-[50%] pointer-events-none"
-          style={{ zIndex: 5 }}
-        >
-          {safeFlowers.map((flower, idx) => {
-            const pos = positions[idx] || { x: 0, y: 0, scale: 1, rotate: 0, zIndex: 10 };
-            const flowerSrc = getFlowerAsset(flower.t, flower.c);
-
-            return (
-              <div
-                key={`${flower.t}-${flower.c}-${idx}`}
-                className="absolute transition-transform duration-500 ease-out"
-                style={{
-                  width: "44%",
-                  aspectRatio: "1 / 1",
-                  left: `calc(50% + ${pos.x * 0.9}%)`,
-                  top: `calc(50% + ${pos.y * 0.9}%)`,
-                  transform: `translate(-50%, -50%) rotate(${pos.rotate}deg) scale(${pos.scale})`,
-                  zIndex: pos.zIndex,
-                  willChange: "transform",
-                }}
-              >
-                <div className="relative w-full h-full filter drop-shadow(0 8px 16px rgba(0,0,0,0.38))">
-                  <Image
-                    src={flowerSrc}
-                    alt={`${FLOWER_META[flower.t]?.label || flower.t}`}
-                    fill
-                    sizes="180px"
-                    className="object-contain hover:scale-105 transition-transform duration-300"
-                    priority={idx < 4}
-                    referrerPolicy="no-referrer"
-                  />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Layer 3: Wrap Front Sleeve & Ribbon Bow (Front Layer) */}
-        {/* Placed on top (z-index 20) so flower bases are tucked naturally inside the cone! */}
-        <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 20 }}>
-          <Image
-            src={wrapAssets.front}
-            alt=""
-            fill
-            sizes="(max-width: 640px) 340px, 420px"
-            className="object-contain filter drop-shadow(0 6px 14px rgba(0,0,0,0.18))"
-            priority
-            referrerPolicy="no-referrer"
-          />
-        </div>
-
-        {/* Subtle realistic gloss / sheen highlight over ribbon */}
-        <div
-          className="absolute pointer-events-none w-[42%] h-[8%] top-[50%] left-1/2 -translate-x-1/2 rounded-full opacity-20 blur-md"
+          className="absolute pointer-events-none w-[42%] h-[7%] top-[51%] left-1/2 -translate-x-1/2 rounded-full opacity-20 blur-sm"
           style={{
             zIndex: 25,
-            background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.8), transparent)",
+            background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.85), transparent)",
           }}
         />
       </div>

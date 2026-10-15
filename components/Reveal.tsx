@@ -91,7 +91,7 @@ export default function Reveal({
   const [, setUsingSynth] = useState(false);
   const [liveMsg, setLiveMsg] = useState("");
   const [resolvedSong, setResolvedSong] = useState<Song>(null);
-  const [viewMode, setViewMode] = useState<"realistic" | "classic">("realistic");
+  const [viewMode, setViewMode] = useState<"classic" | "realistic">("classic");
 
   const songPromiseRef = useRef<Promise<Song> | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
