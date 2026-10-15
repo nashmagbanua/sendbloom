@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import BouquetSVG from "./BouquetSVG";
-import { RealisticBouquet } from "./RealisticBouquet";
 import {
   Bouquet,
   CARD_THEMES,
@@ -91,7 +90,6 @@ export default function Reveal({
   const [, setUsingSynth] = useState(false);
   const [liveMsg, setLiveMsg] = useState("");
   const [resolvedSong, setResolvedSong] = useState<Song>(null);
-  const [viewMode, setViewMode] = useState<"classic" | "realistic">("classic");
 
   const songPromiseRef = useRef<Promise<Song> | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -555,24 +553,7 @@ export default function Reveal({
               stage >= 3 ? "bouquet-compact" : ""
             } ${stage >= 4 ? "bouquet-tuck" : ""}`}
           >
-            {viewMode === "realistic" ? (
-              <RealisticBouquet flowers={data.f} wrap={data.w} size="md" />
-            ) : (
-              <BouquetSVG data={{ f: data.f, w: data.w }} animated={!reduced.current} />
-            )}
-
-            {/* Subtle View Mode Switcher */}
-            <div className="flex justify-center mt-2.5">
-              <button
-                type="button"
-                onClick={() => setViewMode((v) => (v === "realistic" ? "classic" : "realistic"))}
-                className="text-[11px] font-semibold tracking-wide text-white/90 hover:text-white bg-black/35 hover:bg-black/50 backdrop-blur-md px-3.5 py-1 rounded-full border border-white/20 transition-all flex items-center gap-1.5 shadow-md active:scale-95 pointer-events-auto"
-                title="Palitan ang istilo ng pagpapakita ng bouquet"
-              >
-                <span>{viewMode === "realistic" ? "✨ Makatotohanan" : "🎨 Klasikong Guhit"}</span>
-                <span className="text-[9px] opacity-65 font-normal">| Palitan</span>
-              </button>
-            </div>
+            <BouquetSVG data={{ f: data.f, w: data.w }} animated={!reduced.current} />
           </div>
         )}
 
