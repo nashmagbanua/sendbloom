@@ -8,20 +8,31 @@ export interface FlowerPosition {
   zIndex: number;
 }
 
+const MAX_COLORS: Record<FlowerType, number> = {
+  rose: 5,
+  tulip: 5,
+  daisy: 4,
+  sunflower: 2,
+  lily: 4,
+};
+
+const VALID_WRAPS: WrapId[] = ["kraft", "rose", "mint", "night"];
+
 /**
  * Returns the transparent photorealistic asset URL for a given flower type and color index.
  */
 export function getFlowerAsset(type: FlowerType, colorIdx: number): string {
-  // Ensure valid colorIdx
-  const safeIdx = Math.max(0, Math.floor(colorIdx || 0));
-  return `/flowers/${type}_${safeIdx}.webp`;
+  const safeType: FlowerType = MAX_COLORS[type] ? type : "rose";
+  const max = MAX_COLORS[safeType];
+  const safeIdx = Math.min(max - 1, Math.max(0, Math.floor(colorIdx || 0)));
+  return `/flowers/${safeType}_${safeIdx}.webp`;
 }
 
 /**
  * Returns the transparent photorealistic wrap sleeve assets (full cone and front lapel overlay).
  */
 export function getWrapAssets(wrapId: WrapId): { full: string; front: string } {
-  const safeId = wrapId || "kraft";
+  const safeId = VALID_WRAPS.includes(wrapId) ? wrapId : "kraft";
   return {
     full: `/wraps/wrap_${safeId}_full.webp`,
     front: `/wraps/wrap_${safeId}_front.webp`,

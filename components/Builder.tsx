@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import BouquetSVG, { FlowerIcon } from "./BouquetSVG";
+import { RealisticBouquet } from "./RealisticBouquet";
 import { encodeBouquet } from "@/lib/codec";
 import {
   Bouquet,
@@ -78,6 +79,7 @@ export default function Builder() {
   const [link, setLink] = useState("");
   const [toast, setToast] = useState("");
   const [activeTab, setActiveTab] = useState<StepTab>("flowers");
+  const [stagePreviewMode, setStagePreviewMode] = useState<"svg" | "realistic">("svg");
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [copied, setCopied] = useState(false);
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
@@ -430,26 +432,42 @@ export default function Builder() {
             <span className="flower-meter">
               🌸 {flowers.length}/{MAX_FLOWERS} Bulaklak
             </span>
-            <span className="wrap-badge-hint">
-              Balot: {WRAPS[wrap].label}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="wrap-badge-hint">
+                Balot: {WRAPS[wrap].label}
+              </span>
+              <button
+                type="button"
+                onClick={() => setStagePreviewMode((m) => (m === "svg" ? "realistic" : "svg"))}
+                className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full border border-rose-300 bg-white/90 hover:bg-white text-rose-800 transition-all flex items-center gap-1 shadow-xs active:scale-95 cursor-pointer"
+                title="Palitan ang istilo ng preview"
+              >
+                <span>{stagePreviewMode === "realistic" ? "✨ Makatotohanan" : "🎨 Guhit"}</span>
+              </button>
+            </div>
           </div>
 
           <div className="stage-svg-box">
             {flowers.length > 0 ? (
-              <BouquetSVG
-                data={{ f: flowers, w: wrap }}
-                onFlowerClick={(idx) => {
-                  setSelectedFlowerIndex(idx);
-                  const fl = flowers[idx];
-                  if (fl) {
-                    setType(fl.t);
-                    setColor(fl.c);
-                    if (soundEnabled) playFlowerPop(idx);
-                  }
-                }}
-                selectedFlowerIndex={selectedFlowerIndex}
-              />
+              stagePreviewMode === "realistic" ? (
+                <div className="w-full py-2 flex items-center justify-center">
+                  <RealisticBouquet flowers={flowers} wrap={wrap} size="md" />
+                </div>
+              ) : (
+                <BouquetSVG
+                  data={{ f: flowers, w: wrap }}
+                  onFlowerClick={(idx) => {
+                    setSelectedFlowerIndex(idx);
+                    const fl = flowers[idx];
+                    if (fl) {
+                      setType(fl.t);
+                      setColor(fl.c);
+                      if (soundEnabled) playFlowerPop(idx);
+                    }
+                  }}
+                  selectedFlowerIndex={selectedFlowerIndex}
+                />
+              )
             ) : (
               <div className="empty-stage">
                 <p>Walang laman ang bouquet.</p>
@@ -1047,6 +1065,16 @@ export default function Builder() {
                 <p className="share-desc">
                   Ipadala ito sa Messenger o chat. Pagkabukas ng selyo, maririnig ang kanta kasabay ng iyong liham at lumilipad na confetti!
                 </p>
+
+                {/* Final Photorealistic Bouquet Preview for Sender */}
+                <div className="my-4 py-3 px-4 rounded-2xl bg-white/75 border border-rose-100 shadow-inner flex flex-col items-center">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-rose-700/80 mb-2 flex items-center gap-1">
+                    ✨ Huling Anyo ng Iyong Bouquet (Preview)
+                  </span>
+                  <div className="w-full max-w-[280px]">
+                    <RealisticBouquet flowers={flowers} wrap={wrap} size="sm" />
+                  </div>
+                </div>
 
                 {/* Link Box */}
                 <div className="link-copy-container">

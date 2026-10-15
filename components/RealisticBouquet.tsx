@@ -81,7 +81,10 @@ export function RealisticBouquet({
         </div>
 
         {/* Layer 1: Lush Florist Greenery / Eucalyptus (Behind Blooms) */}
-        <div className="absolute z-1 pointer-events-none w-[74%] h-[55%] top-[5%] left-[13%] opacity-90">
+        <div
+          className="absolute pointer-events-none w-[74%] h-[55%] top-[5%] left-[13%] opacity-90"
+          style={{ zIndex: 1 }}
+        >
           {/* Left eucalyptus branch */}
           <div
             className="absolute -left-[10%] top-[4%] w-[55%] aspect-square transform -rotate-25 scale-90 filter drop-shadow(0 6px 12px rgba(0,0,0,0.3)) opacity-90"
@@ -114,7 +117,10 @@ export function RealisticBouquet({
 
         {/* Layer 2: Flower Blooms Stage */}
         {/* Flowers positioned between top cone edge and throat */}
-        <div className="absolute top-[8%] left-[6%] right-[6%] h-[50%] z-5 pointer-events-none">
+        <div
+          className="absolute top-[8%] left-[6%] right-[6%] h-[50%] pointer-events-none"
+          style={{ zIndex: 5 }}
+        >
           {safeFlowers.map((flower, idx) => {
             const pos = positions[idx] || { x: 0, y: 0, scale: 1, rotate: 0, zIndex: 10 };
             const flowerSrc = getFlowerAsset(flower.t, flower.c);
@@ -124,8 +130,8 @@ export function RealisticBouquet({
                 key={`${flower.t}-${flower.c}-${idx}`}
                 className="absolute transition-transform duration-500 ease-out"
                 style={{
-                  width: "40%",
-                  aspectRatio: "1/1",
+                  width: "44%",
+                  aspectRatio: "1 / 1",
                   left: `calc(50% + ${pos.x * 0.9}%)`,
                   top: `calc(50% + ${pos.y * 0.9}%)`,
                   transform: `translate(-50%, -50%) rotate(${pos.rotate}deg) scale(${pos.scale})`,
@@ -138,7 +144,7 @@ export function RealisticBouquet({
                     src={flowerSrc}
                     alt={`${FLOWER_META[flower.t]?.label || flower.t}`}
                     fill
-                    sizes="160px"
+                    sizes="180px"
                     className="object-contain hover:scale-105 transition-transform duration-300"
                     priority={idx < 4}
                     referrerPolicy="no-referrer"
@@ -151,7 +157,7 @@ export function RealisticBouquet({
 
         {/* Layer 3: Wrap Front Sleeve & Ribbon Bow (Front Layer) */}
         {/* Placed on top (z-index 20) so flower bases are tucked naturally inside the cone! */}
-        <div className="absolute inset-0 z-20 pointer-events-none">
+        <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 20 }}>
           <Image
             src={wrapAssets.front}
             alt=""
@@ -165,8 +171,9 @@ export function RealisticBouquet({
 
         {/* Subtle realistic gloss / sheen highlight over ribbon */}
         <div
-          className="absolute z-25 pointer-events-none w-[42%] h-[8%] top-[50%] left-1/2 -translate-x-1/2 rounded-full opacity-20 blur-md"
+          className="absolute pointer-events-none w-[42%] h-[8%] top-[50%] left-1/2 -translate-x-1/2 rounded-full opacity-20 blur-md"
           style={{
+            zIndex: 25,
             background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.8), transparent)",
           }}
         />
