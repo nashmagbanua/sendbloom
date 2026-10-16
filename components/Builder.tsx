@@ -1153,26 +1153,6 @@ export default function Builder() {
                 <p className="coffee-modal-desc">
                   Salamat sa pagsuporta sa SendBloom! Ang inyong tulong ay malaking bagay upang mapanatiling mabilis, maayos, at patuloy na makapaghatid ng ligaya sa pamamagitan ng digital bouquets.
                 </p>
-
-                <div className="coffee-perks-list">
-                  <div className="coffee-perk-item">
-                    <span>🌸</span> <span>100% Libreng magpadala ng bouquets</span>
-                  </div>
-                  <div className="coffee-perk-item">
-                    <span>🎵</span> <span>Walang nakakaabalang ads</span>
-                  </div>
-                  <div className="coffee-perk-item">
-                    <span>💖</span> <span>Pangsuporta sa server at paggawa ng bagong bulaklak</span>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  className="coffee-modal-left-btn"
-                  onClick={() => setShowCoffeeModal(false)}
-                >
-                  Isara
-                </button>
               </div>
 
               {/* Right Column (Desktop) / Bottom (Mobile) */}
@@ -1287,15 +1267,16 @@ export default function Builder() {
                   </button>
                 </div>
 
-                <button
-                  type="button"
-                  className="coffee-modal-done-btn coffee-modal-mobile-btn"
-                  onClick={() => setShowCoffeeModal(false)}
-                >
-                  Isara
-                </button>
               </div>
             </div>
+
+            <button
+              type="button"
+              className="coffee-modal-done-btn"
+              onClick={() => setShowCoffeeModal(false)}
+            >
+              Isara
+            </button>
           </div>
         </div>
       )}

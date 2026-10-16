@@ -1325,8 +1325,20 @@ textarea {
   justify-content: center;
 }
 
-.coffee-modal-header {
-  margin-bottom: 16px;
+.coffee-modal-body {
+  display: flex;
+  flex-direction: column;
+}
+
+.coffee-modal-left {
+  text-align: center;
+  margin-bottom: 14px;
+}
+
+.coffee-modal-right {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .coffee-icon-badge {
@@ -1558,12 +1570,98 @@ textarea {
     display: none;
   }
 
-  /* Optimized Buy Us Coffee Modal for Desktop */
+  /* Landscape Buy Us Coffee Modal on Desktop */
   .coffee-modal-card {
-    max-width: 440px;
-    padding: 30px 28px 24px;
+    max-width: 680px;
+    width: 90vw;
+    padding: 32px 36px 26px;
     border-radius: 28px;
     box-shadow: 0 24px 64px rgba(0, 0, 0, 0.32);
+    text-align: left;
+  }
+
+  .coffee-modal-body {
+    display: grid;
+    grid-template-columns: 1.15fr 0.95fr;
+    gap: 32px;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+
+  .coffee-modal-left {
+    text-align: left;
+    margin-bottom: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .coffee-icon-badge {
+    font-size: 46px;
+    margin-bottom: 8px;
+    text-align: left;
+  }
+
+  .coffee-modal-title {
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--rose-dark);
+    margin: 0 0 10px;
+    text-align: left;
+  }
+
+  .coffee-modal-desc {
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--muted);
+    margin: 0;
+    text-align: left;
+  }
+
+  .coffee-modal-right {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .gcash-card {
+    width: 100%;
+    max-width: 290px;
+    padding: 16px;
+    border-radius: 20px;
+    margin: 0;
+    box-shadow: 0 10px 24px rgba(0, 125, 254, 0.32);
+  }
+
+  .gcash-top-bar {
+    font-size: 14px;
+    margin-bottom: 10px;
+  }
+
+  .gcash-qr-container {
+    padding: 8px;
+    border-radius: 12px;
+    margin-bottom: 10px;
+  }
+
+  .gcash-qr-svg {
+    width: 160px;
+    height: 160px;
+  }
+
+  .gcash-account-name {
+    font-size: 13px;
+  }
+
+  .gcash-account-number {
+    font-size: 18px;
+    letter-spacing: 0.08em;
+  }
+
+  .gcash-copy-btn {
+    padding: 10px 16px;
+    font-size: 13px;
   }
 
   .coffee-modal-close {
@@ -1580,66 +1678,20 @@ textarea {
     transform: scale(1.06);
   }
 
-  .coffee-icon-badge {
-    font-size: 42px;
-    margin-bottom: 6px;
-  }
-
-  .coffee-modal-title {
-    font-size: 21px;
-    margin-bottom: 8px;
-  }
-
-  .coffee-modal-desc {
-    font-size: 13.5px;
-    line-height: 1.5;
-  }
-
-  .gcash-card {
-    padding: 18px 20px;
-    border-radius: 20px;
-    margin-top: 16px;
-    margin-bottom: 16px;
-  }
-
-  .gcash-top-bar {
-    font-size: 15px;
-    margin-bottom: 14px;
-  }
-
-  .gcash-qr-container {
-    padding: 10px;
-    border-radius: 14px;
-    margin-bottom: 12px;
-  }
-
-  .gcash-qr-svg {
-    width: 190px;
-    height: 190px;
-  }
-
-  .gcash-account-name {
-    font-size: 14px;
-  }
-
-  .gcash-account-number {
-    font-size: 20px;
-    letter-spacing: 0.08em;
-  }
-
-  .gcash-copy-btn {
-    padding: 11px 18px;
-    font-size: 14px;
-  }
-
   .coffee-modal-done-btn {
-    padding: 12px;
+    max-width: 200px;
+    margin: 0 auto;
+    display: block;
+    padding: 11px 28px;
     font-size: 14px;
-    transition: background 0.15s ease;
+    border-radius: 999px;
+    transition: background 0.15s ease, border-color 0.15s ease, transform 0.12s ease;
   }
 
   .coffee-modal-done-btn:hover {
     background: #f1f5f9;
+    border-color: #cbd5e1;
+    transform: translateY(-1px);
   }
 
   .builder-footer {
