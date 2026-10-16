@@ -1160,8 +1160,8 @@ export default function Builder() {
                 {/* GCash Card */}
                 <div className="gcash-card">
                   <div className="gcash-top-bar">
-                    <span className="gcash-logo-text">G) GCash</span>
-                    <span className="gcash-scan-tag">Scan to Pay</span>
+                    <span className="gcash-logo-text">GCash</span>
+                    <span className="gcash-scan-tag">Thank YOU</span>
                   </div>
 
                   {/* QR Code SVG Placeholder */}
