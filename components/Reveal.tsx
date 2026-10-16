@@ -647,7 +647,7 @@ export default function Reveal({
               <button
                 type="button"
                 className="wax-seal-badge pulse-seal lt-seal"
-                aria-label="Pindutin ang selyo para buksan ang sulat"
+                aria-label="Pindutin subre para buksan ang sulat"
                 tabIndex={stage === 3 ? 0 : -1}
                 aria-hidden={stage !== 3}
               >
@@ -656,7 +656,7 @@ export default function Reveal({
             </div>
 
             <span className="seal-hint-label lt-hint">
-              Pindutin ang selyo para buksan ang sulat 💌
+              Pindutin subre buksan ang sulat 💌
               {letterNudge && <span className="nudge-extra"> — Pindutin dito</span>}
             </span>
           </div>

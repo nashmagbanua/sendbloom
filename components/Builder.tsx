@@ -1145,131 +1145,157 @@ export default function Builder() {
               ✕
             </button>
 
-            <div className="coffee-modal-header">
-              <div className="coffee-icon-badge">☕</div>
-              <h3 id="coffee-modal-title" className="coffee-modal-title">Buy Us a Coffee</h3>
-              <p className="coffee-modal-desc">
-                Salamat sa pagsuporta sa SendBloom! Ang inyong tulong ay malaking bagay upang mapanatiling mabilis, maayos, at patuloy na makapaghatid ng ligaya sa pamamagitan ng digital bouquets.
-              </p>
-            </div>
+            <div className="coffee-modal-body">
+              {/* Left Column (Desktop) / Top (Mobile) */}
+              <div className="coffee-modal-left">
+                <div className="coffee-icon-badge">☕</div>
+                <h3 id="coffee-modal-title" className="coffee-modal-title">Buy Us a Coffee</h3>
+                <p className="coffee-modal-desc">
+                  Salamat sa pagsuporta sa SendBloom! Ang inyong tulong ay malaking bagay upang mapanatiling mabilis, maayos, at patuloy na makapaghatid ng ligaya sa pamamagitan ng digital bouquets.
+                </p>
 
-            {/* GCash Card */}
-            <div className="gcash-card">
-              <div className="gcash-top-bar">
-                <span className="gcash-logo-text">G) GCash</span>
-                <span className="gcash-scan-tag">Scan to Pay</span>
-              </div>
+                <div className="coffee-perks-list">
+                  <div className="coffee-perk-item">
+                    <span>🌸</span> <span>100% Libreng magpadala ng bouquets</span>
+                  </div>
+                  <div className="coffee-perk-item">
+                    <span>🎵</span> <span>Walang nakakaabalang ads</span>
+                  </div>
+                  <div className="coffee-perk-item">
+                    <span>💖</span> <span>Pangsuporta sa server at paggawa ng bagong bulaklak</span>
+                  </div>
+                </div>
 
-              {/* QR Code SVG Placeholder */}
-              <div className="gcash-qr-container">
-                <svg
-                  viewBox="0 0 200 200"
-                  width="180"
-                  height="180"
-                  className="gcash-qr-svg"
-                  role="img"
-                  aria-label="GCash QR Code Placeholder"
+                <button
+                  type="button"
+                  className="coffee-modal-left-btn"
+                  onClick={() => setShowCoffeeModal(false)}
                 >
-                  {/* Outer Background */}
-                  <rect width="200" height="200" fill="#ffffff" rx="12" />
-
-                  {/* Corner Position Detection Squares (Top-Left) */}
-                  <rect x="20" y="20" width="46" height="46" rx="6" fill="#007dfe" />
-                  <rect x="26" y="26" width="34" height="34" rx="4" fill="#ffffff" />
-                  <rect x="32" y="32" width="22" height="22" rx="3" fill="#007dfe" />
-
-                  {/* Corner Position Detection Squares (Top-Right) */}
-                  <rect x="134" y="20" width="46" height="46" rx="6" fill="#007dfe" />
-                  <rect x="140" y="26" width="34" height="34" rx="4" fill="#ffffff" />
-                  <rect x="146" y="32" width="22" height="22" rx="3" fill="#007dfe" />
-
-                  {/* Corner Position Detection Squares (Bottom-Left) */}
-                  <rect x="20" y="134" width="46" height="46" rx="6" fill="#007dfe" />
-                  <rect x="26" y="140" width="34" height="34" rx="4" fill="#ffffff" />
-                  <rect x="32" y="146" width="22" height="22" rx="3" fill="#007dfe" />
-
-                  {/* QR Matrix Bits */}
-                  <rect x="74" y="22" width="8" height="8" fill="#1e293b" />
-                  <rect x="88" y="22" width="8" height="8" fill="#1e293b" />
-                  <rect x="102" y="22" width="8" height="8" fill="#1e293b" />
-                  <rect x="116" y="22" width="8" height="8" fill="#1e293b" />
-
-                  <rect x="74" y="36" width="8" height="8" fill="#1e293b" />
-                  <rect x="102" y="36" width="8" height="8" fill="#1e293b" />
-
-                  <rect x="88" y="50" width="8" height="8" fill="#1e293b" />
-                  <rect x="116" y="50" width="8" height="8" fill="#1e293b" />
-
-                  <rect x="22" y="74" width="8" height="8" fill="#1e293b" />
-                  <rect x="36" y="74" width="8" height="8" fill="#1e293b" />
-                  <rect x="50" y="74" width="8" height="8" fill="#1e293b" />
-                  <rect x="64" y="74" width="8" height="8" fill="#1e293b" />
-                  <rect x="78" y="74" width="8" height="8" fill="#1e293b" />
-                  <rect x="122" y="74" width="8" height="8" fill="#1e293b" />
-                  <rect x="150" y="74" width="8" height="8" fill="#1e293b" />
-                  <rect x="164" y="74" width="8" height="8" fill="#1e293b" />
-
-                  <rect x="22" y="88" width="8" height="8" fill="#1e293b" />
-                  <rect x="50" y="88" width="8" height="8" fill="#1e293b" />
-                  <rect x="136" y="88" width="8" height="8" fill="#1e293b" />
-                  <rect x="164" y="88" width="8" height="8" fill="#1e293b" />
-
-                  <rect x="22" y="102" width="8" height="8" fill="#1e293b" />
-                  <rect x="36" y="102" width="8" height="8" fill="#1e293b" />
-                  <rect x="64" y="102" width="8" height="8" fill="#1e293b" />
-                  <rect x="122" y="102" width="8" height="8" fill="#1e293b" />
-                  <rect x="150" y="102" width="8" height="8" fill="#1e293b" />
-
-                  <rect x="74" y="122" width="8" height="8" fill="#1e293b" />
-                  <rect x="102" y="122" width="8" height="8" fill="#1e293b" />
-                  <rect x="116" y="122" width="8" height="8" fill="#1e293b" />
-                  <rect x="150" y="122" width="8" height="8" fill="#1e293b" />
-
-                  <rect x="74" y="136" width="8" height="8" fill="#1e293b" />
-                  <rect x="88" y="136" width="8" height="8" fill="#1e293b" />
-                  <rect x="136" y="136" width="8" height="8" fill="#1e293b" />
-                  <rect x="164" y="136" width="8" height="8" fill="#1e293b" />
-
-                  <rect x="88" y="150" width="8" height="8" fill="#1e293b" />
-                  <rect x="102" y="150" width="8" height="8" fill="#1e293b" />
-                  <rect x="122" y="150" width="8" height="8" fill="#1e293b" />
-
-                  <rect x="74" y="164" width="8" height="8" fill="#1e293b" />
-                  <rect x="116" y="164" width="8" height="8" fill="#1e293b" />
-                  <rect x="136" y="164" width="8" height="8" fill="#1e293b" />
-                  <rect x="164" y="164" width="8" height="8" fill="#1e293b" />
-
-                  {/* Center GCash Shield Badge */}
-                  <rect x="82" y="82" width="36" height="36" rx="8" fill="#007dfe" stroke="#ffffff" strokeWidth="3" />
-                  <text x="100" y="104" textAnchor="middle" fill="#ffffff" fontSize="14" fontWeight="bold" fontFamily="sans-serif">
-                    G
-                  </text>
-                </svg>
+                  Isara
+                </button>
               </div>
 
-              {/* Account Details */}
-              <div className="gcash-info-box">
-                <span className="gcash-account-name">SendBloom Dev (Nash M.)</span>
-                <span className="gcash-account-number">0956 0757 315</span>
-              </div>
+              {/* Right Column (Desktop) / Bottom (Mobile) */}
+              <div className="coffee-modal-right">
+                {/* GCash Card */}
+                <div className="gcash-card">
+                  <div className="gcash-top-bar">
+                    <span className="gcash-logo-text">G) GCash</span>
+                    <span className="gcash-scan-tag">Scan to Pay</span>
+                  </div>
 
-              <button
-                type="button"
-                className="gcash-copy-btn"
-                onClick={copyGCashNumber}
-              >
-                {copiedGCash ? <Check size={15} className="inline mr-1" /> : <Copy size={15} className="inline mr-1" />}
-                {copiedGCash ? "Nakopya na ang GCash Number!" : "Kopyahin ang GCash Number"}
-              </button>
+                  {/* QR Code SVG Placeholder */}
+                  <div className="gcash-qr-container">
+                    <svg
+                      viewBox="0 0 200 200"
+                      width="180"
+                      height="180"
+                      className="gcash-qr-svg"
+                      role="img"
+                      aria-label="GCash QR Code Placeholder"
+                    >
+                      {/* Outer Background */}
+                      <rect width="200" height="200" fill="#ffffff" rx="12" />
+
+                      {/* Corner Position Detection Squares (Top-Left) */}
+                      <rect x="20" y="20" width="46" height="46" rx="6" fill="#007dfe" />
+                      <rect x="26" y="26" width="34" height="34" rx="4" fill="#ffffff" />
+                      <rect x="32" y="32" width="22" height="22" rx="3" fill="#007dfe" />
+
+                      {/* Corner Position Detection Squares (Top-Right) */}
+                      <rect x="134" y="20" width="46" height="46" rx="6" fill="#007dfe" />
+                      <rect x="140" y="26" width="34" height="34" rx="4" fill="#ffffff" />
+                      <rect x="146" y="32" width="22" height="22" rx="3" fill="#007dfe" />
+
+                      {/* Corner Position Detection Squares (Bottom-Left) */}
+                      <rect x="20" y="134" width="46" height="46" rx="6" fill="#007dfe" />
+                      <rect x="26" y="140" width="34" height="34" rx="4" fill="#ffffff" />
+                      <rect x="32" y="146" width="22" height="22" rx="3" fill="#007dfe" />
+
+                      {/* QR Matrix Bits */}
+                      <rect x="74" y="22" width="8" height="8" fill="#1e293b" />
+                      <rect x="88" y="22" width="8" height="8" fill="#1e293b" />
+                      <rect x="102" y="22" width="8" height="8" fill="#1e293b" />
+                      <rect x="116" y="22" width="8" height="8" fill="#1e293b" />
+
+                      <rect x="74" y="36" width="8" height="8" fill="#1e293b" />
+                      <rect x="102" y="36" width="8" height="8" fill="#1e293b" />
+
+                      <rect x="88" y="50" width="8" height="8" fill="#1e293b" />
+                      <rect x="116" y="50" width="8" height="8" fill="#1e293b" />
+
+                      <rect x="22" y="74" width="8" height="8" fill="#1e293b" />
+                      <rect x="36" y="74" width="8" height="8" fill="#1e293b" />
+                      <rect x="50" y="74" width="8" height="8" fill="#1e293b" />
+                      <rect x="64" y="74" width="8" height="8" fill="#1e293b" />
+                      <rect x="78" y="74" width="8" height="8" fill="#1e293b" />
+                      <rect x="122" y="74" width="8" height="8" fill="#1e293b" />
+                      <rect x="150" y="74" width="8" height="8" fill="#1e293b" />
+                      <rect x="164" y="74" width="8" height="8" fill="#1e293b" />
+
+                      <rect x="22" y="88" width="8" height="8" fill="#1e293b" />
+                      <rect x="50" y="88" width="8" height="8" fill="#1e293b" />
+                      <rect x="136" y="88" width="8" height="8" fill="#1e293b" />
+                      <rect x="164" y="88" width="8" height="8" fill="#1e293b" />
+
+                      <rect x="22" y="102" width="8" height="8" fill="#1e293b" />
+                      <rect x="36" y="102" width="8" height="8" fill="#1e293b" />
+                      <rect x="64" y="102" width="8" height="8" fill="#1e293b" />
+                      <rect x="122" y="102" width="8" height="8" fill="#1e293b" />
+                      <rect x="150" y="102" width="8" height="8" fill="#1e293b" />
+
+                      <rect x="74" y="122" width="8" height="8" fill="#1e293b" />
+                      <rect x="102" y="122" width="8" height="8" fill="#1e293b" />
+                      <rect x="116" y="122" width="8" height="8" fill="#1e293b" />
+                      <rect x="150" y="122" width="8" height="8" fill="#1e293b" />
+
+                      <rect x="74" y="136" width="8" height="8" fill="#1e293b" />
+                      <rect x="88" y="136" width="8" height="8" fill="#1e293b" />
+                      <rect x="136" y="136" width="8" height="8" fill="#1e293b" />
+                      <rect x="164" y="136" width="8" height="8" fill="#1e293b" />
+
+                      <rect x="88" y="150" width="8" height="8" fill="#1e293b" />
+                      <rect x="102" y="150" width="8" height="8" fill="#1e293b" />
+                      <rect x="122" y="150" width="8" height="8" fill="#1e293b" />
+
+                      <rect x="74" y="164" width="8" height="8" fill="#1e293b" />
+                      <rect x="116" y="164" width="8" height="8" fill="#1e293b" />
+                      <rect x="136" y="164" width="8" height="8" fill="#1e293b" />
+                      <rect x="164" y="164" width="8" height="8" fill="#1e293b" />
+
+                      {/* Center GCash Shield Badge */}
+                      <rect x="82" y="82" width="36" height="36" rx="8" fill="#007dfe" stroke="#ffffff" strokeWidth="3" />
+                      <text x="100" y="104" textAnchor="middle" fill="#ffffff" fontSize="14" fontWeight="bold" fontFamily="sans-serif">
+                        G
+                      </text>
+                    </svg>
+                  </div>
+
+                  {/* Account Details */}
+                  <div className="gcash-info-box">
+                    <span className="gcash-account-name">SendBloom Dev (Nash M.)</span>
+                    <span className="gcash-account-number">0956 0757 315</span>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="gcash-copy-btn"
+                    onClick={copyGCashNumber}
+                  >
+                    {copiedGCash ? <Check size={15} className="inline mr-1" /> : <Copy size={15} className="inline mr-1" />}
+                    {copiedGCash ? "Nakopya na ang GCash Number!" : "Kopyahin ang GCash Number"}
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  className="coffee-modal-done-btn coffee-modal-mobile-btn"
+                  onClick={() => setShowCoffeeModal(false)}
+                >
+                  Isara
+                </button>
+              </div>
             </div>
-
-            <button
-              type="button"
-              className="coffee-modal-done-btn"
-              onClick={() => setShowCoffeeModal(false)}
-            >
-              Isara
-            </button>
           </div>
         </div>
       )}
