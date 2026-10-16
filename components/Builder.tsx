@@ -29,7 +29,6 @@ import {
   WrapId,
   WRAPS,
   WRAP_ORDER,
-  WRITING_PROMPTS,
 } from "@/lib/constants";
 import { playFlowerPop, playRustle, setSoundMuted } from "@/lib/audio";
 import {
@@ -412,15 +411,26 @@ export default function Builder() {
           <h1 className="brand-title">SendBloom</h1>
           <p className="brand-subtitle">Send a little bloom. Share a little love. 🌸</p>
         </div>
-        <button
-          type="button"
-          className="sound-toggle-btn"
-          onClick={toggleSound}
-          aria-label={soundEnabled ? "I-mute ang tunog" : "I-on ang tunog"}
-          title={soundEnabled ? "Mute" : "Unmute"}
-        >
-          {soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
-        </button>
+        <div className="header-actions">
+          <button
+            type="button"
+            className="header-coffee-btn"
+            onClick={() => setShowCoffeeModal(true)}
+            title="Buy us coffee"
+          >
+            <Coffee size={15} className="inline mr-1.5 text-amber-600" />
+            <span>Buy us coffee</span>
+          </button>
+          <button
+            type="button"
+            className="sound-toggle-btn"
+            onClick={toggleSound}
+            aria-label={soundEnabled ? "I-mute ang tunog" : "I-on ang tunog"}
+            title={soundEnabled ? "Mute" : "Unmute"}
+          >
+            {soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
+          </button>
+        </div>
       </header>
 
       {/* Main Workspace: Split on Desktop (Left: Builder, Right: Preview), Stacked on Mobile */}
@@ -734,17 +744,17 @@ export default function Builder() {
               ))}
             </div>
 
-            <div className="actions-row mt-6">
+            <div className="step-nav-row mt-6">
               <button
                 type="button"
-                className="secondary-btn"
+                className="step-nav-prev-btn"
                 onClick={() => setActiveTab("flowers")}
               >
                 ⬅ Bulaklak
               </button>
               <button
                 type="button"
-                className="step-next-btn"
+                className="step-nav-next-btn"
                 onClick={validateAndProceedToLetter}
               >
                 Susunod: Sulat at Kanta ➔
@@ -846,21 +856,6 @@ export default function Builder() {
                 />
                 <div className="char-count">
                   {msg.length}/{MAX_MSG} titik
-                </div>
-                <div className="writing-prompts">
-                  {WRITING_PROMPTS.map((p) => (
-                    <button
-                      key={p}
-                      type="button"
-                      className="writing-prompt"
-                      onClick={() => {
-                        if (!msg.trim()) setMsg(p.replace("…", " "));
-                        else showToast(p);
-                      }}
-                    >
-                      {p}
-                    </button>
-                  ))}
                 </div>
                 {selectedPresetId && (() => {
                   const preset = PRESETS.find((x) => x.id === selectedPresetId);
@@ -1007,17 +1002,17 @@ export default function Builder() {
               </div>
             </div>
 
-            <div className="actions-row u-mt-6">
+            <div className="step-nav-row u-mt-6">
               <button
                 type="button"
-                className="secondary-btn"
+                className="step-nav-prev-btn"
                 onClick={() => setActiveTab("wrap")}
               >
                 ⬅ Balot
               </button>
               <button
                 type="button"
-                className="step-next-btn"
+                className="step-nav-next-btn"
                 onClick={generateLink}
               >
                 Tapusin at Gumawa ng Link ➔

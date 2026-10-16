@@ -74,6 +74,39 @@ textarea {
   color: var(--muted);
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.header-coffee-btn {
+  display: none; /* hidden on mobile, shown on desktop beside speaker */
+  align-items: center;
+  gap: 6px;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+  transition: all 0.15s ease;
+}
+
+.header-coffee-btn:hover {
+  background: #fff8f6;
+  border-color: #fca5a5;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(232, 80, 106, 0.15);
+}
+
+.header-coffee-btn:active {
+  transform: scale(0.96);
+}
+
 .sound-toggle-btn {
   display: flex;
   align-items: center;
@@ -560,6 +593,66 @@ textarea {
 }
 
 /* ───────── Buttons & Rows ───────── */
+
+.step-nav-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  align-items: stretch;
+  width: 100%;
+}
+
+.step-nav-prev-btn,
+.step-nav-next-btn {
+  width: 100%;
+  height: 48px;
+  min-height: 48px;
+  max-height: 48px;
+  box-sizing: border-box;
+  border-radius: 999px;
+  font-size: clamp(12px, 2.9vw, 13.5px);
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 14px;
+  cursor: pointer;
+  text-align: center;
+  line-height: 1.2;
+  margin: 0;
+  transition: transform 0.12s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.step-nav-prev-btn {
+  border: 1.5px solid var(--line);
+  background: #fff8f6;
+  color: var(--ink);
+}
+
+.step-nav-prev-btn:hover {
+  background: #ffeef2;
+  border-color: #fca5a5;
+}
+
+.step-nav-prev-btn:active {
+  transform: scale(0.97);
+}
+
+.step-nav-next-btn {
+  border: 0;
+  background: #3b1f2b;
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(59, 31, 43, 0.22);
+}
+
+.step-nav-next-btn:hover {
+  background: #231219;
+  box-shadow: 0 6px 18px rgba(59, 31, 43, 0.3);
+}
+
+.step-nav-next-btn:active {
+  transform: scale(0.97);
+}
 
 .actions-row {
   display: flex;
@@ -1454,6 +1547,99 @@ textarea {
     flex-wrap: wrap;
     max-height: 120px;
     overflow-y: auto;
+  }
+
+  /* Move coffee button beside speaker in header on desktop */
+  .header-coffee-btn {
+    display: inline-flex;
+  }
+
+  .coffee-footer-btn {
+    display: none;
+  }
+
+  /* Optimized Buy Us Coffee Modal for Desktop */
+  .coffee-modal-card {
+    max-width: 440px;
+    padding: 30px 28px 24px;
+    border-radius: 28px;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.32);
+  }
+
+  .coffee-modal-close {
+    top: 16px;
+    right: 16px;
+    width: 34px;
+    height: 34px;
+    font-size: 15px;
+    transition: background 0.15s ease, transform 0.12s ease;
+  }
+
+  .coffee-modal-close:hover {
+    background: #e2e8f0;
+    transform: scale(1.06);
+  }
+
+  .coffee-icon-badge {
+    font-size: 42px;
+    margin-bottom: 6px;
+  }
+
+  .coffee-modal-title {
+    font-size: 21px;
+    margin-bottom: 8px;
+  }
+
+  .coffee-modal-desc {
+    font-size: 13.5px;
+    line-height: 1.5;
+  }
+
+  .gcash-card {
+    padding: 18px 20px;
+    border-radius: 20px;
+    margin-top: 16px;
+    margin-bottom: 16px;
+  }
+
+  .gcash-top-bar {
+    font-size: 15px;
+    margin-bottom: 14px;
+  }
+
+  .gcash-qr-container {
+    padding: 10px;
+    border-radius: 14px;
+    margin-bottom: 12px;
+  }
+
+  .gcash-qr-svg {
+    width: 190px;
+    height: 190px;
+  }
+
+  .gcash-account-name {
+    font-size: 14px;
+  }
+
+  .gcash-account-number {
+    font-size: 20px;
+    letter-spacing: 0.08em;
+  }
+
+  .gcash-copy-btn {
+    padding: 11px 18px;
+    font-size: 14px;
+  }
+
+  .coffee-modal-done-btn {
+    padding: 12px;
+    font-size: 14px;
+    transition: background 0.15s ease;
+  }
+
+  .coffee-modal-done-btn:hover {
+    background: #f1f5f9;
   }
 
   .builder-footer {
@@ -2860,23 +3046,6 @@ textarea {
 .suggestion-chip:hover {
   border-color: #e8506a;
   color: #c43553;
-}
-
-.writing-prompts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 6px;
-}
-
-.writing-prompt {
-  font-size: 11px;
-  opacity: 0.7;
-  padding: 4px 8px;
-  border-radius: 6px;
-  background: rgba(0, 0, 0, 0.04);
-  border: 0;
-  cursor: pointer;
 }
 
 .sal-clo-row {

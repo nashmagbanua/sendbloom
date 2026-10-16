@@ -59,13 +59,6 @@ export const CLOSING_ORDER: ClosingId[] = [
   "none",
 ];
 
-export const WRITING_PROMPTS = [
-  "Isang bagay na naaalala mo kasama siya…",
-  "Ang gusto mong pasalamatan sa kanya…",
-  "Paano niya pinapangiti ang araw mo…",
-  "Ang nais mong sabihin pero mahirap sabihin nang harap-harapan…",
-];
-
 export const MAX_FLOWERS = 9;
 export const MAX_NAME = 30;
 export const MAX_MSG = 240;
