@@ -423,8 +423,12 @@ export default function Builder() {
         </button>
       </header>
 
-      {/* Bouquet Stage */}
-      <section className="builder-stage-wrapper">
+      {/* Main Workspace: Split on Desktop (Left: Builder, Right: Preview), Stacked on Mobile */}
+      <div className="builder-workspace">
+        {/* Preview Column (Right on Desktop, Top on Mobile) */}
+        <div className="builder-preview-col">
+          {/* Bouquet Stage */}
+          <section className="builder-stage-wrapper">
         <div className="builder-stage-card">
           <div className="stage-top-bar">
             <span className="flower-meter">
@@ -524,9 +528,12 @@ export default function Builder() {
           )}
         </div>
       </section>
+        </div>
 
-      {/* Navigation Tabs */}
-      <nav className="builder-tabs" aria-label="Mga hakbang sa paggawa">
+        {/* Controls Column (Left on Desktop, Bottom on Mobile) */}
+        <div className="builder-controls-col">
+          {/* Navigation Tabs */}
+          <nav className="builder-tabs" aria-label="Mga hakbang sa paggawa">
         <button
           type="button"
           className={`tab-btn ${activeTab === "flowers" ? "active" : ""}`}
@@ -1100,6 +1107,8 @@ export default function Builder() {
             )}
           </div>
         )}
+      </div>
+        </div>
       </div>
 
       {/* Floating Toast Notification */}
