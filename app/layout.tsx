@@ -10,10 +10,14 @@ export const metadata: Metadata = {
     "Gumawa ng sarili mong digital bouquet, lagyan ng mensahe, at ipadala sa Messenger. Bulaklak na hindi nalalanta.",
   icons: {
     icon: [
+      { url: "/favicon.ico" },
+      { url: "/favicon.png", type: "image/png" },
       { url: "/favicon.svg", type: "image/svg+xml" },
-      { url: "/icon", type: "image/png", sizes: "32x32" },
     ],
-    apple: "/apple-icon",
+    apple: [
+      { url: "/apple-icon.png", sizes: "180x180", type: "image/png" },
+    ],
+    shortcut: "/favicon.ico",
   },
   openGraph: {
     title: "SendBloom — Magpadala ng digital bouquet",
